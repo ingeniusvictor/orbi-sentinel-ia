@@ -9,5 +9,8 @@
     { "id": "face-01", "name": "Víctor León", "role": "Director Ingeniería / Admin", "clearance": "Total", "TriggerGreeting": true },
     { "id": "face-02", "name": "Patricio Solar", "role": "Técnico O&M Terreno", "clearance": "Planta Solar", "TriggerGreeting": false },
     { "id": "face-03", "name": "Sofía Martínez", "role": "Administración Central", "clearance": "Comunidad", "TriggerGreeting": false }
+  ],
+  "cameras": [
+    { "id": "lab-cam-01", "name": "Dahua LAB Cam East", "rtspUrl": "rtsp://{user}:{pass}@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1" }
   ]
 }

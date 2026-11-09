@@ -40,6 +40,57 @@ export default function MotionCore({ events, setEvents, parks }: MotionCoreProps
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Real RTSP Stream via WebSocket
+  const [streamConnecting, setStreamConnecting] = useState(false);
+  const [hasRealStream, setHasRealStream] = useState(false);
+
+  useEffect(() => {
+    setStreamConnecting(true);
+    const ws = new WebSocket(`ws://${window.location.hostname}:24678/api/ws/stream`);
+
+    ws.onopen = () => {
+      setStreamConnecting(false);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.type === "frame_data" && payload.data && canvasRef.current && !webcamActive) {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = canvasRef.current;
+            if (canvas) {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                setHasRealStream(true);
+              }
+            }
+          };
+          img.src = payload.data;
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
+
+    ws.onerror = () => {
+      setStreamConnecting(false);
+      setHasRealStream(false);
+    };
+
+    ws.onclose = () => {
+      setStreamConnecting(false);
+      setHasRealStream(false);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [webcamActive]);
+
   const handleProcessEvent = (eventId: string) => {
     setEvents((prev) =>
       prev.map((evt) => (evt.id === eventId ? { ...evt, processed: true } : evt))
@@ -282,9 +333,17 @@ export default function MotionCore({ events, setEvents, parks }: MotionCoreProps
               muted
               className={`w-full h-full object-cover ${webcamActive ? "block" : "hidden"}`}
             />
-            <canvas ref={canvasRef} className="hidden" />
+            <canvas ref={canvasRef} className={`w-full h-full object-cover ${(!webcamActive && hasRealStream) ? "block" : "hidden"}`} />
 
-            {!webcamActive && (
+            {streamConnecting && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-10">
+                <div className="px-4 py-2 border-2 border-emerald-900 bg-slate-900 rounded-lg text-slate-400 font-mono text-sm animate-pulse">
+                  Conectando al Gateway RTSP...
+                </div>
+              </div>
+            )}
+
+            {!webcamActive && !hasRealStream && !streamConnecting && (
               <div className="text-center p-4 space-y-1 font-mono">
                 <Eye className="w-8 h-8 text-emerald-500/40 mx-auto" />
                 <span className="text-xs text-slate-300 font-bold block">VISOR POLIGONAL FRIGATE</span>

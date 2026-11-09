@@ -1112,6 +1112,8 @@ function CameraStreamCanvas({
   onZoneBreach
 }: CameraStreamCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [streamConnecting, setStreamConnecting] = useState(false);
+  const latestFrameRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
     if (registerSnapshotGetter) {
@@ -1121,6 +1123,46 @@ function CameraStreamCanvas({
       });
     }
   }, [registerSnapshotGetter]);
+
+  // WebSocket for Real RTSP Stream (Zero-Latency Bridge)
+  useEffect(() => {
+    if (camera.id !== "lab-cam-01") return; // Only process stream for the specific lab cam
+
+    setStreamConnecting(true);
+    const ws = new WebSocket(`ws://${window.location.hostname}:24678/api/ws/stream`);
+
+    ws.onopen = () => {
+      setStreamConnecting(false);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.type === "frame_data" && payload.data) {
+          const img = new Image();
+          img.onload = () => {
+            latestFrameRef.current = img;
+          };
+          img.src = payload.data;
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
+
+    ws.onerror = () => {
+      setStreamConnecting(false);
+    };
+
+    ws.onclose = () => {
+      setStreamConnecting(false);
+    };
+
+    return () => {
+      ws.close();
+      latestFrameRef.current = null;
+    };
+  }, [camera.id]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1193,62 +1235,67 @@ function CameraStreamCanvas({
         return;
       }
 
-      // Sky & Solar Park Terrain
-      const gradient = ctx.createLinearGradient(0, 0, 0, h);
-      gradient.addColorStop(0, "#0f172a");
-      gradient.addColorStop(0.5, "#1e293b");
-      gradient.addColorStop(0.55, "#065f46");
-      gradient.addColorStop(1, "#022c22");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, w, h);
+      // If we have a real frame from WebSocket, render it. Otherwise, render mock scene.
+      if (camera.id === "lab-cam-01" && latestFrameRef.current) {
+        ctx.drawImage(latestFrameRef.current, 0, 0, w, h);
+      } else {
+        // Sky & Solar Park Terrain
+        const gradient = ctx.createLinearGradient(0, 0, 0, h);
+        gradient.addColorStop(0, "#0f172a");
+        gradient.addColorStop(0.5, "#1e293b");
+        gradient.addColorStop(0.55, "#065f46");
+        gradient.addColorStop(1, "#022c22");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
 
-      // Sun
-      ctx.fillStyle = "#fef08a";
-      ctx.shadowColor = "#eab308";
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      ctx.arc(w * 0.8, h * 0.25, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+        // Sun
+        ctx.fillStyle = "#fef08a";
+        ctx.shadowColor = "#eab308";
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(w * 0.8, h * 0.25, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
 
-      // Solar Trackers
-      ctx.strokeStyle = "#475569";
-      ctx.lineWidth = 2;
-      ctx.fillStyle = "#1e1b4b";
+        // Solar Trackers
+        ctx.strokeStyle = "#475569";
+        ctx.lineWidth = 2;
+        ctx.fillStyle = "#1e1b4b";
 
-      const isAlhue = camera.parkId === "alhue";
-      const trackerRotation = isAlhue ? Math.sin(frameCount * 0.01) * 35 : 15;
+        const isAlhue = camera.parkId === "alhue";
+        const trackerRotation = isAlhue ? Math.sin(frameCount * 0.01) * 35 : 15;
 
-      ctx.save();
-      ctx.translate(w * 0.3, h * 0.65);
-      ctx.rotate((trackerRotation * Math.PI) / 180);
-      ctx.fillRect(-35, -8, 70, 16);
-      ctx.strokeRect(-35, -8, 70, 16);
-      ctx.fillStyle = "#3b82f6";
-      ctx.fillRect(-30, -5, 25, 10);
-      ctx.fillRect(5, -5, 25, 10);
-      ctx.restore();
+        ctx.save();
+        ctx.translate(w * 0.3, h * 0.65);
+        ctx.rotate((trackerRotation * Math.PI) / 180);
+        ctx.fillRect(-35, -8, 70, 16);
+        ctx.strokeRect(-35, -8, 70, 16);
+        ctx.fillStyle = "#3b82f6";
+        ctx.fillRect(-30, -5, 25, 10);
+        ctx.fillRect(5, -5, 25, 10);
+        ctx.restore();
 
-      ctx.beginPath();
-      ctx.moveTo(w * 0.3, h * 0.65);
-      ctx.lineTo(w * 0.3, h * 0.85);
-      ctx.strokeStyle = "#64748b";
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(w * 0.3, h * 0.65);
+        ctx.lineTo(w * 0.3, h * 0.85);
+        ctx.strokeStyle = "#64748b";
+        ctx.stroke();
 
-      ctx.save();
-      ctx.translate(w * 0.65, h * 0.7);
-      ctx.rotate((trackerRotation * Math.PI) / 180);
-      ctx.fillRect(-45, -10, 90, 20);
-      ctx.strokeRect(-45, -10, 90, 20);
-      ctx.fillStyle = "#3b82f6";
-      ctx.fillRect(-40, -6, 35, 12);
-      ctx.fillRect(5, -6, 35, 12);
-      ctx.restore();
+        ctx.save();
+        ctx.translate(w * 0.65, h * 0.7);
+        ctx.rotate((trackerRotation * Math.PI) / 180);
+        ctx.fillRect(-45, -10, 90, 20);
+        ctx.strokeRect(-45, -10, 90, 20);
+        ctx.fillStyle = "#3b82f6";
+        ctx.fillRect(-40, -6, 35, 12);
+        ctx.fillRect(5, -6, 35, 12);
+        ctx.restore();
 
-      ctx.beginPath();
-      ctx.moveTo(w * 0.65, h * 0.7);
-      ctx.lineTo(w * 0.65, h * 0.9);
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(w * 0.65, h * 0.7);
+        ctx.lineTo(w * 0.65, h * 0.9);
+        ctx.stroke();
+      }
 
       // Posición del sujeto y punto de anclaje inferior estilo Frigate (bottom-center)
       const timeFactor = frameCount * 0.015;
@@ -1393,11 +1440,20 @@ function CameraStreamCanvas({
   }, [camera, refreshTrigger, zones, draftPoints, draftColor, isExpanded]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={isExpanded ? 800 : 400}
-      height={isExpanded ? 450 : 225}
-      className="w-full h-full block object-cover font-mono"
-    />
+    <div className="relative w-full h-full">
+      <canvas
+        ref={canvasRef}
+        width={isExpanded ? 800 : 400}
+        height={isExpanded ? 450 : 225}
+        className="w-full h-full block object-cover font-mono"
+      />
+      {streamConnecting && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80">
+          <div className="px-4 py-2 border-2 border-emerald-900 bg-slate-900 rounded-lg text-slate-400 font-mono text-sm animate-pulse">
+            Conectando al Gateway RTSP...
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
