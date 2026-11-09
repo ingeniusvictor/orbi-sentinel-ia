@@ -70,7 +70,7 @@ export interface Camera {
 
 export interface Credential {
   id: string;
-  target: string; // "CÃ¡mara 01", "Switch PoE", "NVR principal"
+  target: string; // "Cámara 01", "Switch PoE", "NVR principal"
   parkId: string;
   username: string;
   passwordMasked: string;
@@ -84,11 +84,16 @@ export interface MotionEvent {
   timestamp: string;
   parkId: string;
   cameraName: string;
-  type: "Persona" | "VehÃ­culo" | "IntrusiÃ³n" | "Animal" | "Movimiento General";
+  type: "Persona" | "Vehículo" | "Intrusión" | "Animal" | "Movimiento General";
   confidence: number;
   description: string;
   processed: boolean;
-  intensity: "Bajo" | "Medio" | "CrÃ­tico";
+  intensity: "Bajo" | "Medio" | "Crítico";
+  zoneName?: string;
+  licensePlate?: string | null;
+  faceIdentity?: string | null;
+  lumiaAction?: string;
+  lumiaSpeech?: string;
 }
 
 export interface VersionRegistry {
@@ -102,14 +107,14 @@ export interface VersionRegistry {
 
 export type IncidentType =
   | "Persona sospechosa"
-  | "VehÃ­culo detenido"
-  | "PortÃ³n abierto"
+  | "Vehículo detenido"
+  | "Portón abierto"
   | "Movimiento fuera de horario"
-  | "CÃ¡mara sin seÃ±al"
+  | "Cámara sin señal"
   | "Mascota/animal"
   | "Otro";
 
-export type IncidentStatus = "Abierto" | "En revisiÃ³n" | "Cerrado";
+export type IncidentStatus = "Abierto" | "En revisión" | "Cerrado";
 
 export interface AuditEvent {
   eventId: string;

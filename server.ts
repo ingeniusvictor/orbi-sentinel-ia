@@ -2489,6 +2489,59 @@ app.post("/api/frigate/analyze-event", async (req, res) => {
   }
 });
 
+// Endpoint for Semantic Forensic Search via Lumia
+app.post("/api/lumia/search", (req, res) => {
+  const { query } = req.body;
+  if (!query) {
+    return res.status(400).json({ error: "Falta parámetro: query" });
+  }
+
+  // Simulate Lumia parsing natural language to JSON filters
+  const lowerQuery = query.toLowerCase();
+  const filters: any = {
+    objectType: null,
+    zone: null,
+    color: null,
+    timeRange: null,
+  };
+
+  if (lowerQuery.includes("camioneta") || lowerQuery.includes("vehículo") || lowerQuery.includes("auto")) filters.objectType = "Vehículo";
+  if (lowerQuery.includes("persona") || lowerQuery.includes("hombre") || lowerQuery.includes("mujer")) filters.objectType = "Persona";
+
+  if (lowerQuery.includes("portón") || lowerQuery.includes("acceso")) filters.zone = "Acceso Vehicular Portón";
+  if (lowerQuery.includes("conserjería") || lowerQuery.includes("hall")) filters.zone = "Conserjería - Hall Central";
+
+  if (lowerQuery.includes("roja") || lowerQuery.includes("rojo")) filters.color = "Rojo";
+  if (lowerQuery.includes("negra") || lowerQuery.includes("negro")) filters.color = "Negro";
+  if (lowerQuery.includes("blanca") || lowerQuery.includes("blanco")) filters.color = "Blanco";
+
+  if (lowerQuery.includes("ayer") || lowerQuery.includes("noche")) filters.timeRange = "Últimas 24 hrs";
+  else filters.timeRange = "Últimos 7 días";
+
+  // Simulate returning results matching the semantic criteria based on orbi-sentinel-db.json logic
+  // For demonstration, returning mock incidents that would be generated from this DB
+
+  const mockResults = [
+    {
+      id: "lumia-search-" + Date.now(),
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      cameraName: filters.zone || "Acceso Vehicular Portón",
+      zoneName: "Condominio Las Condes",
+      type: filters.objectType === "Persona" ? "Persona sospechosa" : "Vehículo detenido",
+      status: "En revisión",
+      observations: `[Lumia Semantic Match] Detectado ${filters.color || "vehículo/persona"} en el área basado en la consulta: "${query}". Filtros aplicados: ${JSON.stringify(filters)}`,
+      snapshotMockUrl: "https://images.unsplash.com/photo-1557597774-9d273605dfa9?auto=format&fit=crop&w=400&q=80"
+    }
+  ];
+
+  return res.json({
+    success: true,
+    engine: "Lumia Semantic Search (Qwen3.5:4b-fast)",
+    parsedFilters: filters,
+    results: mockResults
+  });
+});
+
 // Setup Vite server middleware in development
 async function start() {
   if (process.env.NODE_ENV !== "production") {
