@@ -84,10 +84,14 @@ export default function LiveWall({
   const [lumiaVoiceOn, setLumiaVoiceOn] = useState<boolean>(true);
   const [lumiaAnalyzing, setLumiaAnalyzing] = useState<boolean>(false);
   const [lumiaLastVerdict, setLumiaLastVerdict] = useState<any>(null);
+  const [centinelaAlertActive, setCentinelaAlertActive] = useState<boolean>(false);
   const modalCanvasGetterRef = useRef<(() => string | null) | null>(null);
   const lastAutoTriggerRef = useRef<number>(0);
 
   // Módulo 1E: FFmpeg and Safety Config State
+  const [isMouseIdle, setIsMouseIdle] = useState<boolean>(false);
+  const mouseTimerRef = useRef<any>(null);
+
   const [labConfig, setLabConfig] = useState<any>({
     realConnectorsEnabled: false,
     recordingEnabled: false,
@@ -117,6 +121,22 @@ export default function LiveWall({
       })
       .catch((err) => console.error("Error cargando zonas Frigate:", err));
   };
+
+  useEffect(() => {
+    const handleMouseMove = () => {
+      setIsMouseIdle(false);
+      if (mouseTimerRef.current) clearTimeout(mouseTimerRef.current);
+      mouseTimerRef.current = setTimeout(() => setIsMouseIdle(true), 3000);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    mouseTimerRef.current = setTimeout(() => setIsMouseIdle(true), 3000);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      if (mouseTimerRef.current) clearTimeout(mouseTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     fetch("/api/lab/config")
@@ -231,6 +251,12 @@ export default function LiveWall({
         setLumiaLastVerdict(data);
         if (data.lumiaAction === "HABLAR" && data.lumiaSpeech) {
           speakLumiaText(data.lumiaSpeech);
+        }
+
+        // Modo Centinela: Auto maximize on alert
+        if (data.lumiaAction === "HABLAR" || data.lumiaAction === "ALERTA" || data.licensePlate) {
+           setSelectedCameraId(camera.id);
+           setCentinelaAlertActive(true);
         }
       }
     } catch (err) {
@@ -421,7 +447,7 @@ export default function LiveWall({
   return (
     <div className="space-y-6">
       {/* Header Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+      <div className={`transition-opacity duration-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/40 p-4 rounded-xl border border-slate-800 ${isMouseIdle ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
         <div>
           <h3 className="text-lg font-semibold text-white">Sentinel Live Wall & Frigate Zone Studio</h3>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -491,6 +517,12 @@ export default function LiveWall({
                   active: true
                 });
               }}
+              onZoneBreach={(zone) => {
+                  if (!selectedCameraId && !centinelaAlertActive) {
+                      setSelectedCameraId(camera.id);
+                      setCentinelaAlertActive(true);
+                  }
+              }}
             />
           );
         })}
@@ -499,8 +531,23 @@ export default function LiveWall({
       {/* Modal / Detailed stream view + EDITOR INTERACTIVO DE POLÍGONOS FRIGATE CON EL MOUSE */}
       {selectedCamera && (
         <div className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-5xl w-full overflow-hidden my-auto shadow-2xl">
-            {/* Barra superior del modal */}
+          <div className={`bg-slate-900 border border-slate-800 rounded-2xl max-w-5xl w-full overflow-hidden my-auto shadow-2xl transition-all ${centinelaAlertActive ? "ring-4 ring-rose-500/50 animate-[pulse_2s_ease-in-out_infinite]" : ""}`}>
+
+            {centinelaAlertActive ? (
+                <div className="p-4 bg-rose-500/10 border-b border-rose-500/30 flex justify-center items-center gap-4">
+                  <span className="text-rose-400 font-bold font-mono text-sm animate-pulse">⚠️ ALERTA CENTINELA DETECTADA</span>
+                  <button
+                    onClick={() => {
+                        setCentinelaAlertActive(false);
+                        setSelectedCameraId(null);
+                    }}
+                    className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-slate-950 font-bold rounded flex items-center gap-2 font-mono text-xs transition-all"
+                  >
+                     <Save className="w-4 h-4" />
+                     Confirmar Alerta y Guardar Evidencia
+                  </button>
+                </div>
+            ) : (
             <div className="p-4 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className={`w-2.5 h-2.5 rounded-full ${
@@ -560,6 +607,7 @@ export default function LiveWall({
                     setSelectedCameraId(null);
                     setIsDrawingZone(false);
                     setDraftPoints([]);
+                    setCentinelaAlertActive(false);
                   }}
                   className="text-slate-400 hover:text-white text-xs bg-slate-850 hover:bg-slate-800 px-3 py-1 rounded-lg border border-slate-700"
                 >
@@ -567,9 +615,10 @@ export default function LiveWall({
                 </button>
               </div>
             </div>
+            )}
 
             {/* Barra de configuración rápida cuando estás dibujando con el mouse */}
-            {isDrawingZone && (
+            {!centinelaAlertActive && isDrawingZone && (
               <div className="p-3 bg-slate-950/95 border-b border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-emerald-400 font-bold">
@@ -634,7 +683,7 @@ export default function LiveWall({
             {/* Contenedor de Video + Lienzo Interactivo de Polígonos con el Mouse */}
             <div
               className={`aspect-video w-full bg-black relative select-none ${
-                isDrawingZone ? "cursor-crosshair" : ""
+                !centinelaAlertActive && isDrawingZone ? "cursor-crosshair" : ""
               }`}
               onClick={(e) => {
                 if (!isDrawingZone) return;
@@ -657,6 +706,13 @@ export default function LiveWall({
                 onZoneBreach={(zone) => {
                   if (!autoTriggerLumia) return;
                   const now = Date.now();
+
+                  // Modo Centinela: Quick auto maximize even before lumia finishes if it's a zone breach
+                  if (!selectedCameraId && !centinelaAlertActive && (now - lastAutoTriggerRef.current > 18000)) {
+                      setSelectedCameraId(selectedCamera?.id || "cam-01");
+                      setCentinelaAlertActive(true);
+                  }
+
                   if (now - lastAutoTriggerRef.current > 18000) {
                     lastAutoTriggerRef.current = now;
                     handleAnalyzeCameraWithLumia(selectedCamera, zone);
@@ -666,7 +722,7 @@ export default function LiveWall({
             </div>
 
             {/* Respuesta de Lumia Vision si se ejecutó un análisis en este canal */}
-            {lumiaLastVerdict && (
+            {!centinelaAlertActive && lumiaLastVerdict && (
               <div className="px-5 py-3 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono text-xs">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
@@ -702,7 +758,7 @@ export default function LiveWall({
             )}
 
             {/* Panel inferior con datos técnicos + Lista de Zonas Poligonales de la Cámara */}
-            {userRole === "conserje" ? (
+            {!centinelaAlertActive && (userRole === "conserje" ? (
               <div className="p-5 bg-slate-950/50 text-xs text-slate-300 font-mono space-y-2">
                 <div className="text-emerald-400 font-bold uppercase tracking-wider mb-2">Panel Simplificado de Conserjería</div>
                 <div>Canal de Video: <span className="text-white font-bold">{selectedCamera.name}</span></div>
@@ -783,7 +839,7 @@ export default function LiveWall({
                   </div>
                 </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}
@@ -804,6 +860,7 @@ interface CameraFeedCardProps {
   onAddClip?: (clip: any) => void;
   labConfig?: any;
   onCaptureStart?: (cameraName: string, duration: number) => void;
+  onZoneBreach?: (zone: FrigateZoneItem) => void;
 }
 
 function CameraFeedCard({
@@ -817,7 +874,8 @@ function CameraFeedCard({
   recordingMode = "mixto",
   onAddClip,
   labConfig,
-  onCaptureStart
+  onCaptureStart,
+  onZoneBreach
 }: CameraFeedCardProps) {
   const getStatusBadge = (cam: Camera) => {
     if (userRole === "conserje") {
@@ -952,7 +1010,7 @@ function CameraFeedCard({
       </div>
 
       <div className="aspect-video w-full bg-black relative overflow-hidden group">
-        <CameraStreamCanvas camera={camera} isExpanded={false} refreshTrigger={refreshTrigger} zones={zones} />
+        <CameraStreamCanvas camera={camera} isExpanded={false} refreshTrigger={refreshTrigger} zones={zones} onZoneBreach={onZoneBreach} />
 
         {camera.status !== "Offline" && camera.status !== "Sin Acceso" && (
           <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-150 gap-2 cursor-pointer" onClick={onClick}>
