@@ -2578,27 +2578,6 @@ async function start() {
   console.log(`[GPU Manager] Reserving ${GpuReservationConfig.targetGpu} strictly for ${GpuReservationConfig.model} inference.`);
   console.log(`[GPU Manager] Video streams will be handled via ${GpuReservationConfig.videoHandling} to maintain Zero-Latency.`);
 
-  // Zero-Latency Video Stream Bridge (Simulated RTSP to WebRTC/WebSocket)
-  const wss = new WebSocketServer({ server, path: "/api/ws/stream" });
-  wss.on("connection", (ws) => {
-    console.log("[Zero-Latency Bridge] New WebSocket connection established for RTSP stream.");
-
-    const interval = setInterval(() => {
-      if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({
-          type: "frame",
-          timestamp: Date.now(),
-          status: "active",
-          latency: "1ms"
-        }));
-      }
-    }, 1000 / 30);
-
-    ws.on("close", () => {
-      clearInterval(interval);
-      console.log("[Zero-Latency Bridge] WebSocket connection closed.");
-    });
-  });
 
   // Lab Bypass for Webcam DirectShow capture and zero-latency WebSocket delivery
   const labWss = new WebSocketServer({ port: 24678 });
