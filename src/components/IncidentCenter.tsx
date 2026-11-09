@@ -137,24 +137,25 @@ Sentinel IA Foundation Base: Reporte de Evidencia Operacional`;
         </p>
       </div>
 
-      {/* Lumia Semantic Search Bar */}
-      <form onSubmit={handleLumiaSearch} className="bg-slate-900 border border-emerald-500/50 rounded-xl p-2 flex items-center gap-3 relative overflow-hidden">
-        <div className="flex-1 flex items-center gap-3 px-2 z-10">
-          <Search className="w-5 h-5 text-emerald-500" />
-          <input
-            type="text"
-            placeholder='Ej: "camioneta roja en el portón" o "persona cerca de los inversores"'
-            value={semanticQuery}
-            onChange={(e) => setSemanticQuery(e.target.value)}
-            className="w-full bg-transparent border-none text-emerald-300 font-mono text-sm focus:outline-none placeholder:text-emerald-900/50"
-          />
-          <Mic className="w-5 h-5 text-emerald-500 cursor-pointer hover:text-emerald-400 transition-colors" title="Búsqueda por voz (Lumia Voice)" />
+      {/* Buscador Forense Lumia (Cerebro IA) */}
+      <form onSubmit={handleLumiaSearch} className="mb-6 bg-slate-900/80 border border-emerald-500/40 p-4 rounded-2xl flex items-center gap-4 shadow-[0_0_15px_rgba(16,185,129,0.15)] relative overflow-hidden">
+        <div className="w-10 h-10 rounded-full bg-emerald-950 flex items-center justify-center border border-emerald-500/50 z-10">
+          <span className="text-emerald-400 font-bold text-sm tracking-wider">IA</span>
         </div>
-
+        <input
+          type="text"
+          placeholder='Búsqueda Forense Lumia: Ej. "Persona sospechosa ayer en Parque Solar Alhué"'
+          value={semanticQuery}
+          onChange={(e) => setSemanticQuery(e.target.value)}
+          className="flex-1 bg-transparent border-none outline-none text-emerald-300 placeholder-emerald-800 font-mono text-sm sm:text-base z-10"
+        />
+        <button type="button" className="text-slate-500 hover:text-emerald-400 transition-colors px-2 z-10">
+          🎙️
+        </button>
         <button
           type="submit"
           disabled={isProcessingLumia}
-          className="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 px-4 py-2 rounded-lg font-mono text-xs font-bold transition-all z-10 whitespace-nowrap flex items-center gap-2"
+          className="bg-emerald-900/40 text-emerald-400 border border-emerald-700 hover:bg-emerald-800/60 px-6 py-2 rounded-lg font-bold transition-colors uppercase text-xs tracking-wider z-10 flex items-center gap-2"
         >
           {isProcessingLumia ? (
             <>
@@ -162,7 +163,7 @@ Sentinel IA Foundation Base: Reporte de Evidencia Operacional`;
               Procesando...
             </>
           ) : (
-            "Buscar (Lumia)"
+            "Procesar"
           )}
         </button>
 
