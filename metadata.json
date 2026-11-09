@@ -1,0 +1,8 @@
+{
+  "name": "Remix ORBI Sentinel IA",
+  "description": "Control inteligente CCTV multi-marca para parques solares y recintos operacionales con analítica de eventos y diagnóstico de comunicaciones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
