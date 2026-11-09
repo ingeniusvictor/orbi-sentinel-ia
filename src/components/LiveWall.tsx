@@ -1112,6 +1112,17 @@ function CameraStreamCanvas({
   onZoneBreach
 }: CameraStreamCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [frameBase64, setFrameBase64] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:24678");
+    ws.onmessage = (event) => {
+      setFrameBase64(event.data);
+    };
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   useEffect(() => {
     if (registerSnapshotGetter) {
@@ -1193,62 +1204,21 @@ function CameraStreamCanvas({
         return;
       }
 
-      // Sky & Solar Park Terrain
-      const gradient = ctx.createLinearGradient(0, 0, 0, h);
-      gradient.addColorStop(0, "#0f172a");
-      gradient.addColorStop(0.5, "#1e293b");
-      gradient.addColorStop(0.55, "#065f46");
-      gradient.addColorStop(1, "#022c22");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, w, h);
-
-      // Sun
-      ctx.fillStyle = "#fef08a";
-      ctx.shadowColor = "#eab308";
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      ctx.arc(w * 0.8, h * 0.25, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // Solar Trackers
-      ctx.strokeStyle = "#475569";
-      ctx.lineWidth = 2;
-      ctx.fillStyle = "#1e1b4b";
-
-      const isAlhue = camera.parkId === "alhue";
-      const trackerRotation = isAlhue ? Math.sin(frameCount * 0.01) * 35 : 15;
-
-      ctx.save();
-      ctx.translate(w * 0.3, h * 0.65);
-      ctx.rotate((trackerRotation * Math.PI) / 180);
-      ctx.fillRect(-35, -8, 70, 16);
-      ctx.strokeRect(-35, -8, 70, 16);
-      ctx.fillStyle = "#3b82f6";
-      ctx.fillRect(-30, -5, 25, 10);
-      ctx.fillRect(5, -5, 25, 10);
-      ctx.restore();
-
-      ctx.beginPath();
-      ctx.moveTo(w * 0.3, h * 0.65);
-      ctx.lineTo(w * 0.3, h * 0.85);
-      ctx.strokeStyle = "#64748b";
-      ctx.stroke();
-
-      ctx.save();
-      ctx.translate(w * 0.65, h * 0.7);
-      ctx.rotate((trackerRotation * Math.PI) / 180);
-      ctx.fillRect(-45, -10, 90, 20);
-      ctx.strokeRect(-45, -10, 90, 20);
-      ctx.fillStyle = "#3b82f6";
-      ctx.fillRect(-40, -6, 35, 12);
-      ctx.fillRect(5, -6, 35, 12);
-      ctx.restore();
-
-      ctx.beginPath();
-      ctx.moveTo(w * 0.65, h * 0.7);
-      ctx.lineTo(w * 0.65, h * 0.9);
-      ctx.stroke();
+      // Render base64 frame from WebSocket
+      if (frameBase64) {
+        const img = new window.Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, w, h);
+        };
+        img.src = "data:image/jpeg;base64," + frameBase64;
+      } else {
+        ctx.fillStyle = "#0c0a09";
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "#10b981";
+        ctx.font = "bold 12px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("WAITING FOR WEBCAM FEED (ws://localhost:24678)...", w / 2, h / 2);
+      }
 
       // Posición del sujeto y punto de anclaje inferior estilo Frigate (bottom-center)
       const timeFactor = frameCount * 0.015;

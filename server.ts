@@ -2583,7 +2583,6 @@ async function start() {
   wss.on("connection", (ws) => {
     console.log("[Zero-Latency Bridge] New WebSocket connection established for RTSP stream.");
 
-    // Simulate low-latency heartbeat/video frames
     const interval = setInterval(() => {
       if (ws.readyState === ws.OPEN) {
         ws.send(JSON.stringify({
@@ -2593,13 +2592,68 @@ async function start() {
           latency: "1ms"
         }));
       }
-    }, 1000 / 30); // 30 FPS simulation
+    }, 1000 / 30);
 
     ws.on("close", () => {
       clearInterval(interval);
       console.log("[Zero-Latency Bridge] WebSocket connection closed.");
     });
   });
+
+  // Lab Bypass for Webcam DirectShow capture and zero-latency WebSocket delivery
+  const labWss = new WebSocketServer({ port: 24678 });
+  console.log("WebSocket server for webcam running on ws://localhost:24678");
+
+  const ffmpegArgs = ['-f', 'dshow', '-i', 'video=USB2.0 HD UVC WebCam', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-r', '15', '-q:v', '5', '-'];
+
+  let ffmpegProc;
+  try {
+    const { spawn } = await import('child_process');
+    ffmpegProc = spawn('ffmpeg', ffmpegArgs);
+    console.log("[Lab Bypass] FFmpeg spawn for DirectShow started.");
+
+    let buffer = Buffer.alloc(0);
+    ffmpegProc.stdout.on('data', (data) => {
+      buffer = Buffer.concat([buffer, data]);
+
+      // Split MJPEG stream by JPEG Start of Image (FF D8) and End of Image (FF D9)
+      const startMarker = Buffer.from([0xff, 0xd8]);
+      const endMarker = Buffer.from([0xff, 0xd9]);
+
+      let startIndex = buffer.indexOf(startMarker);
+      let endIndex = buffer.indexOf(endMarker, startIndex);
+
+      while (startIndex !== -1 && endIndex !== -1) {
+        const frame = buffer.slice(startIndex, endIndex + 2);
+        const base64Frame = frame.toString('base64');
+
+        labWss.clients.forEach(client => {
+          if (client.readyState === 1) { // OPEN
+            client.send(base64Frame);
+          }
+        });
+
+        buffer = buffer.slice(endIndex + 2);
+        startIndex = buffer.indexOf(startMarker);
+        if (startIndex !== -1) {
+          endIndex = buffer.indexOf(endMarker, startIndex);
+        } else {
+          endIndex = -1;
+        }
+      }
+    });
+
+    ffmpegProc.stderr.on('data', (data) => {
+      // Optional logging of FFmpeg stderr (can be noisy)
+    });
+
+    ffmpegProc.on('close', (code) => {
+      console.log("[Lab Bypass] FFmpeg exited with code", code);
+    });
+
+  } catch (err) {
+    console.error("[Lab Bypass] Error spawning FFmpeg:", err);
+  }
 }
 
 start().catch((err) => {
