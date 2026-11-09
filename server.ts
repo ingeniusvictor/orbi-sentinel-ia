@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
@@ -88,29 +88,29 @@ app.post("/api/diagnose", async (req, res) => {
   const { parkName, cameraName, currentStatus, telemetry, details, userObservations } = req.body;
 
   if (!parkName || !cameraName) {
-    return res.status(400).json({ error: "Faltan parámetros requeridos: parkName y cameraName." });
+    return res.status(400).json({ error: "Faltan parÃ¡metros requeridos: parkName y cameraName." });
   }
 
   // If AI is available, generate an intelligent analysis
   if (ai) {
     try {
-      const prompt = `Actúa como el motor interno "ORBI Vision Core" de "ORBI Sentinel IA", un especialista senior en CCTV, redes de comunicación industrial, radioenlaces Ubiquiti/MikroTik y trackers solares (seguidores fotovoltaicos).
+      const prompt = `ActÃºa como el motor interno "ORBI Vision Core" de "ORBI Sentinel IA", un especialista senior en CCTV, redes de comunicaciÃ³n industrial, radioenlaces Ubiquiti/MikroTik y trackers solares (seguidores fotovoltaicos).
 
-Genera un reporte técnico de evidencia y diagnóstico profesional en formato Markdown de acuerdo con la siguiente información:
+Genera un reporte tÃ©cnico de evidencia y diagnÃ³stico profesional en formato Markdown de acuerdo con la siguiente informaciÃ³n:
 - Parque Solar / Recinto: ${parkName}
-- Cámara Afectada: ${cameraName}
-- Estado de Conexión: ${currentStatus}
-- Telemetría / Datos Técnicos: ${JSON.stringify(telemetry || {})}
+- CÃ¡mara Afectada: ${cameraName}
+- Estado de ConexiÃ³n: ${currentStatus}
+- TelemetrÃ­a / Datos TÃ©cnicos: ${JSON.stringify(telemetry || {})}
 - Detalles del Caso: ${details || "No especificados"}
 - Observaciones del Operador: ${userObservations || "No especificadas"}
 
 Instrucciones para el reporte:
-1. Sé altamente técnico, claro y estructurado en español.
-2. Explica la posible causa raíz del problema (por ejemplo, atenuación por movimiento de trackers solares que bloquean la línea de vista del radioenlace, fallas PoE, desconfiguración de red, etc.).
-3. NUNCA inventes o muestres contraseñas o datos de credenciales confidenciales en el reporte. Menciona que las credenciales están resguardadas en el Access Vault.
-4. Incluye un plan de acción paso a paso para resolución en terreno.
+1. SÃ© altamente tÃ©cnico, claro y estructurado en espaÃ±ol.
+2. Explica la posible causa raÃ­z del problema (por ejemplo, atenuaciÃ³n por movimiento de trackers solares que bloquean la lÃ­nea de vista del radioenlace, fallas PoE, desconfiguraciÃ³n de red, etc.).
+3. NUNCA inventes o muestres contraseÃ±as o datos de credenciales confidenciales en el reporte. Menciona que las credenciales estÃ¡n resguardadas en el Access Vault.
+4. Incluye un plan de acciÃ³n paso a paso para resoluciÃ³n en terreno.
 5. Agrega recomendaciones de mantenimiento preventivo para parques solares.
-6. Mantén el tono formal de ingeniería y seguridad operacional de parques de energía limpia.`;
+6. MantÃ©n el tono formal de ingenierÃ­a y seguridad operacional de parques de energÃ­a limpia.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
@@ -132,34 +132,34 @@ Instrucciones para el reporte:
 
   // Offline / Fallback Template Generator
   console.log("Generating fallback report for " + cameraName);
-  let fallbackReport = `## REPORTE TÉCNICO DE EVIDENCIA CCTV - ORBI Sentinel IA
+  let fallbackReport = `## REPORTE TÃ‰CNICO DE EVIDENCIA CCTV - ORBI Sentinel IA
 **ID de Reporte:** SR-${Math.floor(100000 + Math.random() * 900000)}
 **Parque Solar:** ${parkName}
 **Equipo Analizado:** ${cameraName}
-**Fecha de Diagnóstico:** ${new Date().toLocaleString("es-CL")}
+**Fecha de DiagnÃ³stico:** ${new Date().toLocaleString("es-CL")}
 **Estado Actual:** ${currentStatus}
-**Módulo Analizador:** ORBI Vision Core (Fallback Determinista)
+**MÃ³dulo Analizador:** ORBI Vision Core (Fallback Determinista)
 
 ---
 
 ### 1. Resumen Ejecutivo
-Se ha realizado un análisis de diagnóstico para la cámara **${cameraName}** ubicada en el parque solar **${parkName}**. El dispositivo presenta un estado reportado como **${currentStatus}**. 
+Se ha realizado un anÃ¡lisis de diagnÃ³stico para la cÃ¡mara **${cameraName}** ubicada en el parque solar **${parkName}**. El dispositivo presenta un estado reportado como **${currentStatus}**. 
 
-### 2. Hallazgos y Diagnóstico Técnico
-* **Detalles del Caso:** ${details || "Pérdida de comunicación o inconsistencia en transmisiones."}
-* **Observaciones Adicionales:** ${userObservations || "Revisión técnica solicitada para asegurar el perímetro operacional."}
-* **Comunicaciones & PoE:** Verificación de tramas ICMP y estado del switch PoE Dahua Lab. Se detectó ${currentStatus === "Offline" ? "ausencia de respuesta al ping y falta de consumo de potencia PoE" : "latencia aceptable con leves pérdidas de paquetes en momentos de alta temperatura"}.
-${parkName.toLowerCase().includes("alhué") ? `* **Interferencia de Trackers:** Alhué reporta que durante las horas de máxima elevación solar, el giro de los paneles fotovoltaicos obstruye la línea de vista (LOS) del radioenlace inalámbrico de 5 GHz.` : ""}
+### 2. Hallazgos y DiagnÃ³stico TÃ©cnico
+* **Detalles del Caso:** ${details || "PÃ©rdida de comunicaciÃ³n o inconsistencia en transmisiones."}
+* **Observaciones Adicionales:** ${userObservations || "RevisiÃ³n tÃ©cnica solicitada para asegurar el perÃ­metro operacional."}
+* **Comunicaciones & PoE:** VerificaciÃ³n de tramas ICMP y estado del switch PoE Dahua Lab. Se detectÃ³ ${currentStatus === "Offline" ? "ausencia de respuesta al ping y falta de consumo de potencia PoE" : "latencia aceptable con leves pÃ©rdidas de paquetes en momentos de alta temperatura"}.
+${parkName.toLowerCase().includes("alhuÃ©") ? `* **Interferencia de Trackers:** AlhuÃ© reporta que durante las horas de mÃ¡xima elevaciÃ³n solar, el giro de los paneles fotovoltaicos obstruye la lÃ­nea de vista (LOS) del radioenlace inalÃ¡mbrico de 5 GHz.` : ""}
 
-### 3. Plan de Acción Recomendado (Soporte Técnico)
-1. **Verificación de Alimentación (Física):** Comprobar que el puerto del Switch PoE Dahua esté energizado correctamente (802.3af/at).
-2. **Revisión de Enlaces Inalámbricos:** En caso de radioenlaces, validar el alineamiento y altura de las antenas para evitar zonas de sombra causadas por el movimiento de los seguidores solares (trackers).
-3. **Validación de Capa Física:** Inspeccionar cableado estructurado exterior RJ45 blindado (STP Cat6 con cable a tierra para evitar descargas estáticas).
+### 3. Plan de AcciÃ³n Recomendado (Soporte TÃ©cnico)
+1. **VerificaciÃ³n de AlimentaciÃ³n (FÃ­sica):** Comprobar que el puerto del Switch PoE Dahua estÃ© energizado correctamente (802.3af/at).
+2. **RevisiÃ³n de Enlaces InalÃ¡mbricos:** En caso de radioenlaces, validar el alineamiento y altura de las antenas para evitar zonas de sombra causadas por el movimiento de los seguidores solares (trackers).
+3. **ValidaciÃ³n de Capa FÃ­sica:** Inspeccionar cableado estructurado exterior RJ45 blindado (STP Cat6 con cable a tierra para evitar descargas estÃ¡ticas).
 4. **Acceso Seguro:** Las credenciales requeridas se encuentran encriptadas y resguardadas bajo cumplimiento en el **Sentinel Access Vault**.
 
 ### 4. Recomendaciones Operacionales
-* Programar un mapeo de cobertura inalámbrica durante todo el ciclo de rotación diario de los trackers.
-* Configurar alertas SNMP automáticas en el Sentinel Gateway local ante caídas de enlace superiores a 30 segundos.
+* Programar un mapeo de cobertura inalÃ¡mbrica durante todo el ciclo de rotaciÃ³n diario de los trackers.
+* Configurar alertas SNMP automÃ¡ticas en el Sentinel Gateway local ante caÃ­das de enlace superiores a 30 segundos.
 `;
 
   return res.json({
@@ -188,7 +188,7 @@ app.get("/api/lab/config", (req, res) => {
     ffmpegVersion,
     writePermissionStatus,
     mode: (realConnectors && recordingEnabled && adapterEnabled) ? "lab-real" : "mock-simulated",
-    warning: "El uso de conectores reales solo está permitido en redes de laboratorio locales autorizadas."
+    warning: "El uso de conectores reales solo estÃ¡ permitido en redes de laboratorio locales autorizadas."
   });
 });
 
@@ -212,7 +212,7 @@ app.get("/api/lab/ffmpeg/status", (req, res) => {
   });
 });
 
-// Helper function for Módulo 1G Lifecycle Decoration
+// Helper function for MÃ³dulo 1G Lifecycle Decoration
 function decorateClipLifecycle(clip: any) {
   if (!clip || !clip.id) return;
   
@@ -322,7 +322,7 @@ function decorateClipLifecycle(clip: any) {
         clipId: clip.id,
         action: "clip.created",
         result: "success",
-        reason: "Segmentación local y registro de clip de laboratorio",
+        reason: "SegmentaciÃ³n local y registro de clip de laboratorio",
         source: clip.source
       }
     ];
@@ -392,7 +392,7 @@ app.post("/api/lab/clips/:clipId/policy", (req, res) => {
   const { policy, userRole, actorAlias } = req.body;
 
   if (!policy) {
-    return res.status(400).json({ error: "Falta parámetro: policy" });
+    return res.status(400).json({ error: "Falta parÃ¡metro: policy" });
   }
 
   const metadataDir = path.join(process.cwd(), "orbi-sentinel-lab-recordings", "metadata");
@@ -426,7 +426,7 @@ app.post("/api/lab/clips/:clipId/policy", (req, res) => {
               clipId: clipId,
               action: "clip.retention.policy.applied",
               result: "success",
-              reason: `Aplicada política de retención: ${policy}`,
+              reason: `Aplicada polÃ­tica de retenciÃ³n: ${policy}`,
               source: clip.source
             });
             fs.writeFileSync(filePath, JSON.stringify(clip, null, 2));
@@ -463,7 +463,7 @@ app.post("/api/lab/clips/:clipId/verify-integrity", (req, res) => {
               const fullPath = path.join(process.cwd(), clip.storagePath);
               if (!fs.existsSync(fullPath)) {
                 integritySuccess = false;
-                detailReason = "Advertencia: Archivo físico .mp4 ausente en disco (File Missing).";
+                detailReason = "Advertencia: Archivo fÃ­sico .mp4 ausente en disco (File Missing).";
               }
             }
 
@@ -501,7 +501,7 @@ app.post("/api/lab/clips/:clipId/delete", (req, res) => {
   const { userRole, actorAlias, force } = req.body;
 
   if (userRole === "conserje") {
-    return res.status(403).json({ error: "Acceso Denegado: El rol Conserjería no tiene permisos para eliminar evidencia." });
+    return res.status(403).json({ error: "Acceso Denegado: El rol ConserjerÃ­a no tiene permisos para eliminar evidencia." });
   }
 
   const deleteEnabled = process.env.ORBI_SENTINEL_LAB_DELETE_ENABLED === "true";
@@ -528,12 +528,12 @@ app.post("/api/lab/clips/:clipId/delete", (req, res) => {
                 clipId: clipId,
                 action: "clip.deletion.blocked.evidence",
                 result: "blocked",
-                reason: "Eliminación bloqueada: El clip está protegido como evidencia permanente.",
+                reason: "EliminaciÃ³n bloqueada: El clip estÃ¡ protegido como evidencia permanente.",
                 source: clip.source
               });
               fs.writeFileSync(filePath, JSON.stringify(clip, null, 2));
               return res.status(400).json({
-                error: "Operación bloqueada: El clip está protegido como evidencia permanente. Cancele la protección antes de eliminar."
+                error: "OperaciÃ³n bloqueada: El clip estÃ¡ protegido como evidencia permanente. Cancele la protecciÃ³n antes de eliminar."
               });
             }
 
@@ -547,12 +547,12 @@ app.post("/api/lab/clips/:clipId/delete", (req, res) => {
                 clipId: clipId,
                 action: "clip.deletion.blocked.evidence",
                 result: "blocked",
-                reason: `Eliminación bloqueada: El clip está vinculado al Incidente ${clip.associatedIncidentId}.`,
+                reason: `EliminaciÃ³n bloqueada: El clip estÃ¡ vinculado al Incidente ${clip.associatedIncidentId}.`,
                 source: clip.source
               });
               fs.writeFileSync(filePath, JSON.stringify(clip, null, 2));
               return res.status(400).json({
-                error: `Operación bloqueada: El clip está vinculado al Incidente ${clip.associatedIncidentId}. Debe desvincularlo primero.`
+                error: `OperaciÃ³n bloqueada: El clip estÃ¡ vinculado al Incidente ${clip.associatedIncidentId}. Debe desvincularlo primero.`
               });
             }
 
@@ -566,12 +566,12 @@ app.post("/api/lab/clips/:clipId/delete", (req, res) => {
                 clipId: clipId,
                 action: "clip.deletion.blocked.privacy",
                 result: "blocked",
-                reason: "Eliminación bloqueada: Los clips en zonas privadas están protegidos por Privacy Shield.",
+                reason: "EliminaciÃ³n bloqueada: Los clips en zonas privadas estÃ¡n protegidos por Privacy Shield.",
                 source: clip.source
               });
               fs.writeFileSync(filePath, JSON.stringify(clip, null, 2));
               return res.status(400).json({
-                error: "Operación bloqueada: Los clips bloqueados por Privacy Shield no pueden eliminarse manualmente en el laboratorio."
+                error: "OperaciÃ³n bloqueada: Los clips bloqueados por Privacy Shield no pueden eliminarse manualmente en el laboratorio."
               });
             }
 
@@ -589,7 +589,7 @@ app.post("/api/lab/clips/:clipId/delete", (req, res) => {
               return res.json({
                 success: true,
                 deletedReal: true,
-                message: "Eliminación física realizada exitosamente en el Sandbox de laboratorio."
+                message: "EliminaciÃ³n fÃ­sica realizada exitosamente en el Sandbox de laboratorio."
               });
             } else {
               // Simulated deletion
@@ -603,7 +603,7 @@ app.post("/api/lab/clips/:clipId/delete", (req, res) => {
                 clipId: clipId,
                 action: "clip.deletion.simulated",
                 result: "success",
-                reason: "Eliminación lógica de laboratorio simulada (ORBI_SENTINEL_LAB_DELETE_ENABLED=false). No borrado forense real.",
+                reason: "EliminaciÃ³n lÃ³gica de laboratorio simulada (ORBI_SENTINEL_LAB_DELETE_ENABLED=false). No borrado forense real.",
                 source: clip.source
               });
               fs.writeFileSync(filePath, JSON.stringify(clip, null, 2));
@@ -611,7 +611,7 @@ app.post("/api/lab/clips/:clipId/delete", (req, res) => {
               return res.json({
                 success: true,
                 deletedReal: false,
-                message: "Eliminación lógica simulada aplicada (simulación únicamente).",
+                message: "EliminaciÃ³n lÃ³gica simulada aplicada (simulaciÃ³n Ãºnicamente).",
                 metadata: clip
               });
             }
@@ -630,7 +630,7 @@ app.post("/api/lab/retention/rotate", (req, res) => {
   const { userRole, actorAlias } = req.body;
 
   if (userRole === "conserje") {
-    return res.status(403).json({ error: "Acceso Denegado: El rol Conserjería no tiene permisos para ejecutar rotación de almacenamiento." });
+    return res.status(403).json({ error: "Acceso Denegado: El rol ConserjerÃ­a no tiene permisos para ejecutar rotaciÃ³n de almacenamiento." });
   }
 
   const deleteEnabled = process.env.ORBI_SENTINEL_LAB_DELETE_ENABLED === "true";
@@ -682,7 +682,7 @@ app.post("/api/lab/retention/rotate", (req, res) => {
                 clipId: clip.id,
                 action: "storage.rotation.simulated",
                 result: "success",
-                reason: `Rotación simulada: clip expirado (${clip.ageDays} días de antigüedad, política ${clip.retentionPolicy})`,
+                reason: `RotaciÃ³n simulada: clip expirado (${clip.ageDays} dÃ­as de antigÃ¼edad, polÃ­tica ${clip.retentionPolicy})`,
                 source: clip.source
               });
               fs.writeFileSync(filePath, JSON.stringify(clip, null, 2));
@@ -702,8 +702,8 @@ app.post("/api/lab/retention/rotate", (req, res) => {
   }
 
   const resultMessage = deleteEnabled 
-    ? "Rotación física de almacenamiento ejecutada con éxito sobre clips expirados elegibles."
-    : "Simulación de rotación completada. No se eliminaron archivos reales (Simulación únicamente).";
+    ? "RotaciÃ³n fÃ­sica de almacenamiento ejecutada con Ã©xito sobre clips expirados elegibles."
+    : "SimulaciÃ³n de rotaciÃ³n completada. No se eliminaron archivos reales (SimulaciÃ³n Ãºnicamente).";
 
   res.json({
     success: true,
@@ -724,7 +724,7 @@ app.get("/api/lab/clips/:clipId/stream", (req, res) => {
   const { role } = req.query; // Expect role to be passed as query param
 
   if (role === "conserje") {
-    return res.status(403).json({ error: "Acceso Denegado: El rol Conserje no tiene autorización para streaming o reproducción de grabaciones." });
+    return res.status(403).json({ error: "Acceso Denegado: El rol Conserje no tiene autorizaciÃ³n para streaming o reproducciÃ³n de grabaciones." });
   }
 
   const metadataDir = path.join(process.cwd(), "orbi-sentinel-lab-recordings", "metadata");
@@ -763,11 +763,11 @@ app.get("/api/lab/clips/:clipId/stream", (req, res) => {
           eventId: "evt-" + Date.now(),
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
           actorRole: role || "operador",
-          actorAlias: role === "tecnico" ? "Patricio Solar" : "Sofía Martínez",
+          actorAlias: role === "tecnico" ? "Patricio Solar" : "SofÃ­a MartÃ­nez",
           action: "clip.playback.blocked",
           clipId: clipId,
           result: "blocked",
-          reason: "Bloqueo por Privacy Shield: Intento de reproducción de zona privada.",
+          reason: "Bloqueo por Privacy Shield: Intento de reproducciÃ³n de zona privada.",
           source: foundClip.source
         });
         fs.writeFileSync(foundFilePath, JSON.stringify(foundClip, null, 2));
@@ -786,7 +786,7 @@ app.get("/api/lab/clips/:clipId/stream", (req, res) => {
         eventId: "evt-" + Date.now(),
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actorRole: role || "operador",
-        actorAlias: role === "tecnico" ? "Patricio Solar" : "Sofía Martínez",
+        actorAlias: role === "tecnico" ? "Patricio Solar" : "SofÃ­a MartÃ­nez",
         action: "clip.playback.opened",
         clipId: clipId,
         result: "success",
@@ -830,7 +830,7 @@ app.get("/api/lab/clips/:clipId/stream", (req, res) => {
         fs.createReadStream(filePath).pipe(res);
       }
     } else {
-      return res.status(404).json({ error: "Archivo físico .mp4 de laboratorio no encontrado en disco (File Missing)." });
+      return res.status(404).json({ error: "Archivo fÃ­sico .mp4 de laboratorio no encontrado en disco (File Missing)." });
     }
   } else {
     // Falls back to standard redirect for mock/simulated playbacks so it works elegantly in UI
@@ -844,11 +844,11 @@ app.post("/api/lab/clips/:clipId/export", (req, res) => {
   const { reason, userRole, actorAlias } = req.body;
 
   if (userRole === "conserje") {
-    return res.status(403).json({ error: "Acceso Denegado: El rol Conserje no está autorizado para realizar exportaciones de evidencia." });
+    return res.status(403).json({ error: "Acceso Denegado: El rol Conserje no estÃ¡ autorizado para realizar exportaciones de evidencia." });
   }
 
   if (!reason || reason.trim().length < 5) {
-    return res.status(400).json({ error: "Falta parámetro: Debe ingresar una justificación técnica o de seguridad de al menos 5 caracteres para exportar." });
+    return res.status(400).json({ error: "Falta parÃ¡metro: Debe ingresar una justificaciÃ³n tÃ©cnica o de seguridad de al menos 5 caracteres para exportar." });
   }
 
   const metadataDir = path.join(process.cwd(), "orbi-sentinel-lab-recordings", "metadata");
@@ -887,11 +887,11 @@ app.post("/api/lab/clips/:clipId/export", (req, res) => {
           eventId: "evt-" + Date.now(),
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
           actorRole: userRole || "admin",
-          actorAlias: actorAlias || "Sofía Martínez",
+          actorAlias: actorAlias || "SofÃ­a MartÃ­nez",
           action: "clip.export.blocked",
           clipId: clipId,
           result: "blocked",
-          reason: `Bloqueo de exportación por zona privada: ${reason}`,
+          reason: `Bloqueo de exportaciÃ³n por zona privada: ${reason}`,
           source: foundClip.source
         });
         fs.writeFileSync(foundFilePath, JSON.stringify(foundClip, null, 2));
@@ -921,7 +921,7 @@ app.post("/api/lab/clips/:clipId/export", (req, res) => {
     sha256: integrityHash,
     integrityStatus: "verified",
     signatureAlgorithm: "HMAC-SHA256",
-    packageGeneratedBy: actorAlias || "Sofía Martínez",
+    packageGeneratedBy: actorAlias || "SofÃ­a MartÃ­nez",
     packageGeneratedRole: userRole || "admin",
     packageGeneratedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
     exportReason: reason,
@@ -942,11 +942,11 @@ app.post("/api/lab/clips/:clipId/export", (req, res) => {
         eventId: "evt-" + Date.now(),
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actorRole: userRole || "admin",
-        actorAlias: actorAlias || "Sofía Martínez",
+        actorAlias: actorAlias || "SofÃ­a MartÃ­nez",
         action: "clip.export.package.generated",
         clipId: clipId,
         result: "success",
-        reason: `Generado paquete de evidencia ${packageId}. Justificación: ${reason}`,
+        reason: `Generado paquete de evidencia ${packageId}. JustificaciÃ³n: ${reason}`,
         source: foundClip.source
       });
       foundClip.exportStatus = "approved";
@@ -1000,11 +1000,11 @@ app.post("/api/lab/clips/:clipId/protect", (req, res) => {
               eventId: "evt-" + Date.now(),
               timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
               actorRole: userRole || "admin",
-              actorAlias: actorAlias || "Sofía Martínez",
+              actorAlias: actorAlias || "SofÃ­a MartÃ­nez",
               action: "clip.evidence.protected",
               clipId: clipId,
               result: "success",
-              reason: "Clip marcado formalmente como Evidencia Protegida (Retención permanente)",
+              reason: "Clip marcado formalmente como Evidencia Protegida (RetenciÃ³n permanente)",
               source: clip.source
             });
             fs.writeFileSync(filePath, JSON.stringify(clip, null, 2));
@@ -1046,7 +1046,7 @@ app.post("/api/lab/clips/:clipId/associate", (req, res) => {
               eventId: "evt-" + Date.now(),
               timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
               actorRole: userRole || "admin",
-              actorAlias: actorAlias || "Sofía Martínez",
+              actorAlias: actorAlias || "SofÃ­a MartÃ­nez",
               action: "clip.associated.incident",
               clipId: clipId,
               incidentId: incidentId,
@@ -1087,7 +1087,7 @@ app.post("/api/lab/clips/:clipId/audit", (req, res) => {
               eventId: "evt-" + Date.now(),
               timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
               actorRole: actorRole || "admin",
-              actorAlias: actorAlias || "Sofía Martínez",
+              actorAlias: actorAlias || "SofÃ­a MartÃ­nez",
               action: action || "clip.playback.opened",
               clipId: clipId,
               result: result || "success",
@@ -1111,7 +1111,7 @@ app.post("/api/lab/clips/:clipId/audit", (req, res) => {
 app.post("/api/lab/ffmpeg/capture-clip", async (req, res) => {
   const {
     cameraId,
-    cameraName = "Cámara Desconocida",
+    cameraName = "CÃ¡mara Desconocida",
     cameraIp = "127.0.0.1",
     privacyZone = "common",
     durationSeconds,
@@ -1122,17 +1122,17 @@ app.post("/api/lab/ffmpeg/capture-clip", async (req, res) => {
   } = req.body;
 
   if (!cameraId || !durationSeconds) {
-    return res.status(400).json({ error: "Faltan parámetros: cameraId y durationSeconds." });
+    return res.status(400).json({ error: "Faltan parÃ¡metros: cameraId y durationSeconds." });
   }
 
   const duration = Number(durationSeconds);
   if (isNaN(duration) || duration <= 0) {
-    return res.status(400).json({ error: "Duración de captura inválida." });
+    return res.status(400).json({ error: "DuraciÃ³n de captura invÃ¡lida." });
   }
 
   // Segment durations maximum 60 seconds
   if (duration > 60) {
-    return res.status(400).json({ error: "Seguridad: La duración máxima permitida de captura en laboratorio es de 60 segundos." });
+    return res.status(400).json({ error: "Seguridad: La duraciÃ³n mÃ¡xima permitida de captura en laboratorio es de 60 segundos." });
   }
 
   // Privacy Zone Check (Private cameras are strictly blocked under Privacy Shield)
@@ -1140,7 +1140,7 @@ app.post("/api/lab/ffmpeg/capture-clip", async (req, res) => {
     return res.status(400).json({
       success: false,
       status: "Privacy Blocked",
-      error: "Cámara en zona privada. Captura bloqueada por directiva de privacidad (Privacy Shield)."
+      error: "CÃ¡mara en zona privada. Captura bloqueada por directiva de privacidad (Privacy Shield)."
     });
   }
 
@@ -1226,7 +1226,7 @@ app.post("/api/lab/ffmpeg/capture-clip", async (req, res) => {
       type: "evento",
       status: "disponible",
       associatedIncidentId: incidentId || null,
-      description: `Segmento de evento capturado simuladamente para cámara no elegible: ${cameraName}.`,
+      description: `Segmento de evento capturado simuladamente para cÃ¡mara no elegible: ${cameraName}.`,
       privacyZone
     };
 
@@ -1251,14 +1251,14 @@ app.post("/api/lab/ffmpeg/capture-clip", async (req, res) => {
       fileName,
       storageMode: "simulated",
       timestamp,
-      error: "Cámara no elegible para grabación real en laboratorio.",
+      error: "CÃ¡mara no elegible para grabaciÃ³n real en laboratorio.",
       metadata: mockMetadata
     });
   }
 
   // Real capture under laboratory conditions!
   // Redact credentials for security
-  const maskedRtsp = `rtsp://admin:••••••@192.168.1.108:554/cam/realmonitor?channel=1&subtype=${streamProfile === "main" ? 0 : 1}`;
+  const maskedRtsp = `rtsp://admin:â€¢â€¢â€¢â€¢â€¢â€¢@192.168.1.108:554/cam/realmonitor?channel=1&subtype=${streamProfile === "main" ? 0 : 1}`;
   console.log(`[FFmpeg Adapter] Secure Capture: Source Redacted: ${maskedRtsp}. Output file: ${fileName}`);
 
   const outputFilePath = path.join(clipsDir, fileName);
@@ -1345,7 +1345,7 @@ app.post("/api/lab/snapshot", async (req, res) => {
   const { cameraId, streamProfile = "main", mode = "mock" } = req.body;
 
   if (!cameraId) {
-    return res.status(400).json({ error: "Falta el parámetro cameraId." });
+    return res.status(400).json({ error: "Falta el parÃ¡metro cameraId." });
   }
 
   const timestamp = new Date().toLocaleString("es-CL");
@@ -1359,7 +1359,7 @@ app.post("/api/lab/snapshot", async (req, res) => {
       fuente: "mock",
       imagen: null,
       error: "connector disabled",
-      message: "Conexión real bloqueada. La bandera de seguridad ORBI_SENTINEL_LAB_REAL_CONNECTORS no está activa."
+      message: "ConexiÃ³n real bloqueada. La bandera de seguridad ORBI_SENTINEL_LAB_REAL_CONNECTORS no estÃ¡ activa."
     });
   }
 
@@ -1369,7 +1369,7 @@ app.post("/api/lab/snapshot", async (req, res) => {
     if (isMockIp) {
       if (cameraId === "lab-cam-01") {
         return res.json({
-          estado: "Éxito",
+          estado: "Ã‰xito",
           timestamp,
           fuente: "real",
           imagen: "demo_snapshot_b64_placeholder_lab_east",
@@ -1378,9 +1378,9 @@ app.post("/api/lab/snapshot", async (req, res) => {
             resolution: "4MP (2688x1520)",
             codec: "H.264",
             profile: streamProfile,
-            rtspUrl: `rtsp://admin:••••••@192.168.1.108:554/cam/realmonitor?channel=1&subtype=${streamProfile === "main" ? 0 : 1}`,
+            rtspUrl: `rtsp://admin:â€¢â€¢â€¢â€¢â€¢â€¢@192.168.1.108:554/cam/realmonitor?channel=1&subtype=${streamProfile === "main" ? 0 : 1}`,
             fps: 25,
-            message: "Conexión de laboratorio establecida. Snapshot recuperado con éxito."
+            message: "ConexiÃ³n de laboratorio establecida. Snapshot recuperado con Ã©xito."
           }
         });
       } else if (cameraId === "lab-cam-02") {
@@ -1389,8 +1389,8 @@ app.post("/api/lab/snapshot", async (req, res) => {
           timestamp,
           fuente: "real",
           imagen: null,
-          error: "credencial inválida",
-          message: "Autenticación fallida (HTTP 401 Unauthorized) al consultar la cámara West."
+          error: "credencial invÃ¡lida",
+          message: "AutenticaciÃ³n fallida (HTTP 401 Unauthorized) al consultar la cÃ¡mara West."
         });
       } else {
         return res.json({
@@ -1399,7 +1399,7 @@ app.post("/api/lab/snapshot", async (req, res) => {
           fuente: "real",
           imagen: null,
           error: "host no responde",
-          message: "No se recibió respuesta del host. Timeout de conexión de red local (3000ms)."
+          message: "No se recibiÃ³ respuesta del host. Timeout de conexiÃ³n de red local (3000ms)."
         });
       }
     }
@@ -1407,7 +1407,7 @@ app.post("/api/lab/snapshot", async (req, res) => {
 
   // Fallback / Mode Mock
   return res.json({
-    estado: "Éxito",
+    estado: "Ã‰xito",
     timestamp,
     fuente: "mock",
     imagen: "demo_snapshot_mock_fallback",
@@ -1416,9 +1416,9 @@ app.post("/api/lab/snapshot", async (req, res) => {
       resolution: "4MP (2688x1520) [Simulado]",
       codec: "MJPEG Simulado",
       profile: streamProfile,
-      rtspUrl: `rtsp://admin:••••••@192.168.1.108:554/cam/realmonitor?channel=1&subtype=${streamProfile === "main" ? 0 : 1}`,
+      rtspUrl: `rtsp://admin:â€¢â€¢â€¢â€¢â€¢â€¢@192.168.1.108:554/cam/realmonitor?channel=1&subtype=${streamProfile === "main" ? 0 : 1}`,
       fps: 15,
-      message: "Modo Simulado Activo. Snapshot de demostración de laboratorio generado correctamente."
+      message: "Modo Simulado Activo. Snapshot de demostraciÃ³n de laboratorio generado correctamente."
     }
   });
 });
@@ -1428,7 +1428,7 @@ app.post("/api/lab/onvif/device-info", async (req, res) => {
   const { cameraId } = req.body;
 
   if (!cameraId) {
-    return res.status(400).json({ error: "Falta el parámetro cameraId." });
+    return res.status(400).json({ error: "Falta el parÃ¡metro cameraId." });
   }
 
   const realEnabled = isRealConnectorEnabled();
@@ -1454,7 +1454,7 @@ app.post("/api/lab/onvif/device-info", async (req, res) => {
     },
     ptz: {
       supported: false,
-      message: "Cámara fija. No soporta comandos PTZ continuos."
+      message: "CÃ¡mara fija. No soporta comandos PTZ continuos."
     },
     state: state,
     connectorFlagActive: realEnabled
@@ -1472,7 +1472,7 @@ app.post("/api/lab/health-check", (req, res) => {
   const { cameraId, checkType = "all", privacyZone = "lab" } = req.body;
 
   if (!cameraId) {
-    return res.status(400).json({ error: "Falta el parámetro cameraId." });
+    return res.status(400).json({ error: "Falta el parÃ¡metro cameraId." });
   }
 
   const timestamp = new Date().toLocaleString("es-CL");
@@ -1626,8 +1626,8 @@ let labCamerasStore = [
     connectionType: "PoE",
     status: "online",
     ip: "192.168.1.108",
-    maskedIp: "192.168.1.•••",
-    rtsp: "rtsp://admin:••••••@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1",
+    maskedIp: "192.168.1.â€¢â€¢â€¢",
+    rtsp: "rtsp://admin:â€¢â€¢â€¢â€¢â€¢â€¢@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1",
     protocol: "RTSP",
     lastTest: "Never",
     snapshotResult: "Success",
@@ -1640,8 +1640,8 @@ let labCamerasStore = [
     connectionType: "PoE",
     status: "intermittent",
     ip: "192.168.1.109",
-    maskedIp: "192.168.1.•••",
-    rtsp: "rtsp://admin:••••••@192.168.1.109:554/cam/realmonitor?channel=1&subtype=1",
+    maskedIp: "192.168.1.â€¢â€¢â€¢",
+    rtsp: "rtsp://admin:â€¢â€¢â€¢â€¢â€¢â€¢@192.168.1.109:554/cam/realmonitor?channel=1&subtype=1",
     protocol: "RTSP",
     lastTest: "Never",
     snapshotResult: "Unauthorized",
@@ -1654,17 +1654,17 @@ function maskIp(ip: string): string {
   if (!ip) return "";
   const parts = ip.split(".");
   if (parts.length === 4) {
-    return `${parts[0]}.${parts[1]}.${parts[2]}.•••`;
+    return `${parts[0]}.${parts[1]}.${parts[2]}.â€¢â€¢â€¢`;
   }
-  return "•••.•••.•••.•••";
+  return "â€¢â€¢â€¢.â€¢â€¢â€¢.â€¢â€¢â€¢.â€¢â€¢â€¢";
 }
 
 function maskRtsp(rtsp: string): string {
   if (!rtsp) return "";
   try {
-    return rtsp.replace(/rtsp:\/\/([^:]+):([^@]+)@([^:/]+)(:\d+)?/, "rtsp://admin:••••••@$3:554");
+    return rtsp.replace(/rtsp:\/\/([^:]+):([^@]+)@([^:/]+)(:\d+)?/, "rtsp://admin:â€¢â€¢â€¢â€¢â€¢â€¢@$3:554");
   } catch {
-    return "rtsp://admin:••••••@192.168.1.•••:554/cam/realmonitor";
+    return "rtsp://admin:â€¢â€¢â€¢â€¢â€¢â€¢@192.168.1.â€¢â€¢â€¢:554/cam/realmonitor";
   }
 }
 
@@ -1740,7 +1740,7 @@ function getMaskedRuntimeProfile() {
     subtype: runtimeProfileStore.subtype,
     rtspPort: runtimeProfileStore.rtspPort,
     testType: runtimeProfileStore.testType,
-    maskedRtsp: `rtsp://${runtimeProfileStore.username}:••••••@${maskIp(runtimeProfileStore.ip)}:${runtimeProfileStore.rtspPort}/cam/realmonitor?channel=${runtimeProfileStore.channel}&subtype=${runtimeProfileStore.subtype}`
+    maskedRtsp: `rtsp://${runtimeProfileStore.username}:â€¢â€¢â€¢â€¢â€¢â€¢@${maskIp(runtimeProfileStore.ip)}:${runtimeProfileStore.rtspPort}/cam/realmonitor?channel=${runtimeProfileStore.channel}&subtype=${runtimeProfileStore.subtype}`
   };
 }
 
@@ -1775,7 +1775,7 @@ app.post("/api/lab/cameras/runtime-profile", (req, res) => {
     timestamp: new Date().toLocaleString("es-CL"),
     maskedProfile: getMaskedRuntimeProfile(),
     metadata: {
-      info: "Perfil runtime configurado en memoria volátil de sesión."
+      info: "Perfil runtime configurado en memoria volÃ¡til de sesiÃ³n."
     }
   });
 });
@@ -1790,7 +1790,7 @@ app.post("/api/lab/cameras/clear-runtime-profile", (req, res) => {
     timestamp: new Date().toLocaleString("es-CL"),
     maskedProfile: null,
     metadata: {
-      info: "Sesión de laboratorio y credenciales limpiadas con éxito."
+      info: "SesiÃ³n de laboratorio y credenciales limpiadas con Ã©xito."
     }
   });
 });
@@ -1855,7 +1855,7 @@ app.post("/api/lab/cameras/test-reachability", (req, res) => {
         ok: false,
         success: false,
         status: "Not Configured",
-        error: "No se ha configurado la dirección IP o el perfil en la sesión.",
+        error: "No se ha configurado la direcciÃ³n IP o el perfil en la sesiÃ³n.",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -1954,7 +1954,7 @@ app.post("/api/lab/cameras/test-snapshot", async (req, res) => {
         ok: false,
         success: false,
         status: "Not Configured",
-        error: "No hay cámara activa ni perfil cargado.",
+        error: "No hay cÃ¡mara activa ni perfil cargado.",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -1977,7 +1977,7 @@ app.post("/api/lab/cameras/test-snapshot", async (req, res) => {
           resolution: "4MP (2688x1520)",
           codec: "JPEG",
           latency: "15ms",
-          diagnostic: "Snapshot exitoso desde red física de laboratorio local."
+          diagnostic: "Snapshot exitoso desde red fÃ­sica de laboratorio local."
         }
       });
     }
@@ -1992,7 +1992,7 @@ app.post("/api/lab/cameras/test-snapshot", async (req, res) => {
         ok: false,
         success: false,
         status: "Unauthorized",
-        error: "Credenciales no válidas o permisos insuficientes. Revise credenciales fuera de la UI pública.",
+        error: "Credenciales no vÃ¡lidas o permisos insuficientes. Revise credenciales fuera de la UI pÃºblica.",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -2017,7 +2017,7 @@ app.post("/api/lab/cameras/test-snapshot", async (req, res) => {
           ok: false,
           success: false,
           status: "Unauthorized",
-          error: "Credenciales no válidas o permisos insuficientes. Revise credenciales fuera de la UI pública.",
+          error: "Credenciales no vÃ¡lidas o permisos insuficientes. Revise credenciales fuera de la UI pÃºblica.",
           timestamp: new Date().toLocaleString("es-CL"),
           maskedProfile: getMaskedRuntimeProfile()
         });
@@ -2034,7 +2034,7 @@ app.post("/api/lab/cameras/test-snapshot", async (req, res) => {
             resolution: "4MP (2688x1520)",
             codec: "JPEG",
             latency: "55ms",
-            diagnostic: "Fotografía capturada con éxito de forma real."
+            diagnostic: "FotografÃ­a capturada con Ã©xito de forma real."
           }
         });
       } else {
@@ -2042,7 +2042,7 @@ app.post("/api/lab/cameras/test-snapshot", async (req, res) => {
           ok: false,
           success: false,
           status: "Needs Review",
-          error: `Servidor Dahua retornó estado inesperado HTTP: ${response.status}`,
+          error: `Servidor Dahua retornÃ³ estado inesperado HTTP: ${response.status}`,
           timestamp: new Date().toLocaleString("es-CL"),
           maskedProfile: getMaskedRuntimeProfile()
         });
@@ -2053,7 +2053,7 @@ app.post("/api/lab/cameras/test-snapshot", async (req, res) => {
         ok: false,
         success: false,
         status: "Network Unreachable",
-        error: `Fallo de conexión física con la cámara local en ${maskIp(targetIp)}: ${err.message}`,
+        error: `Fallo de conexiÃ³n fÃ­sica con la cÃ¡mara local en ${maskIp(targetIp)}: ${err.message}`,
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -2102,7 +2102,7 @@ app.post("/api/lab/cameras/test-rtsp", (req, res) => {
         ok: false,
         success: false,
         status: "Not Configured",
-        error: "No hay perfil ni host de cámara.",
+        error: "No hay perfil ni host de cÃ¡mara.",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -2214,7 +2214,7 @@ app.post("/api/lab/cameras/test-rtsp", (req, res) => {
         ok: false,
         success: false,
         status: "Timeout",
-        error: "Timeout en la conexión RTSP sobre el puerto local.",
+        error: "Timeout en la conexiÃ³n RTSP sobre el puerto local.",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -2280,7 +2280,7 @@ app.post("/api/lab/ffmpeg/probe", (req, res) => {
         ok: false,
         success: false,
         status: "Not Configured",
-        error: "Cámara no configurada.",
+        error: "CÃ¡mara no configurada.",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -2303,7 +2303,7 @@ app.post("/api/lab/ffmpeg/probe", (req, res) => {
           avg_frame_rate: "25/1",
           pix_fmt: "yuv420p"
         },
-        diagnostic: "FFmpeg probe exitosa: Cámara responde a flujos H.264 en red local.",
+        diagnostic: "FFmpeg probe exitosa: CÃ¡mara responde a flujos H.264 en red local.",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -2314,7 +2314,7 @@ app.post("/api/lab/ffmpeg/probe", (req, res) => {
         ok: false,
         success: false,
         status: "Unauthorized",
-        error: "Error en sonda FFmpeg: Código de salida 1 (Conexión rechazada por credenciales)",
+        error: "Error en sonda FFmpeg: CÃ³digo de salida 1 (ConexiÃ³n rechazada por credenciales)",
         timestamp: new Date().toLocaleString("es-CL"),
         maskedProfile: getMaskedRuntimeProfile()
       });
@@ -2342,7 +2342,7 @@ app.post("/api/lab/ffmpeg/probe", (req, res) => {
           // Sanitize any raw password/IP from error message
           let sanitizedErr = probeErr.message;
           if (pass) {
-            sanitizedErr = sanitizedErr.split(pass).join("••••••");
+            sanitizedErr = sanitizedErr.split(pass).join("â€¢â€¢â€¢â€¢â€¢â€¢");
           }
           sanitizedErr = sanitizedErr.split(targetIp).join(maskIp(targetIp));
 
@@ -2391,6 +2391,103 @@ app.post("/api/lab/ffmpeg/probe", (req, res) => {
   }
 });
 
+
+// ============================================================================
+// MÓDULO 17A: FRIGATE ZONES, LPR/FACE-ID & LUMIA VISION (qwen3.5:4b-fast) API
+// ============================================================================
+import { DEFAULT_FRIGATE_ZONES, analyzeWithLumiaVision, isBottomCenterInsideZone, loadPersistedZones, savePersistedZones, loadSentinelDatabase, saveSentinelDatabase } from "./src/services/frigateEngine";
+
+let activeFrigateZones = loadPersistedZones();
+
+app.get("/api/frigate/zones", (req, res) => {
+  res.json({
+    success: true,
+    engine: "ORBI Frigate Core + Lumia Vision",
+    ollamaModel: process.env.ORBI_LUMIA_MODEL || "qwen3.5:4b-fast",
+    zones: activeFrigateZones
+  });
+
+app.post("/api/frigate/zones", (req, res) => {
+  try {
+    const { name, cameraId, points, triggerObjects, lprEnabled, faceRecognitionEnabled, notifyLumia, color } = req.body;
+    if (!name || !cameraId || !Array.isArray(points) || points.length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: "Una zona poligonal Frigate requiere al menos 3 vértices (clics en el video)."
+      });
+    }
+    const newZone = {
+      id: "zone-custom-" + Date.now(),
+      name: String(name).trim(),
+      cameraId: String(cameraId),
+      points: points.map((p: any) => ({ x: Number(p.x), y: Number(p.y) })),
+      triggerObjects: triggerObjects || ["Persona", "Vehículo"],
+      lprEnabled: Boolean(lprEnabled),
+      faceRecognitionEnabled: Boolean(faceRecognitionEnabled),
+      notifyLumia: notifyLumia !== undefined ? Boolean(notifyLumia) : true,
+      color: color || "#10b981"
+    };
+    activeFrigateZones.push(newZone);
+    savePersistedZones(activeFrigateZones);
+    return res.json({ success: true, zone: newZone, zones: activeFrigateZones });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete("/api/frigate/zones/:zoneId", (req, res) => {
+  const { zoneId } = req.params;
+  activeFrigateZones = activeFrigateZones.filter(z => z.id !== zoneId);
+  savePersistedZones(activeFrigateZones);
+  return res.json({ success: true, zones: activeFrigateZones });
+
+app.get("/api/frigate/registry", (req, res) => {
+  res.json({ success: true, db: loadSentinelDatabase() });
+});
+
+app.post("/api/frigate/registry/plate", (req, res) => {
+  const { plate, owner, role = "Autorizado", parkId = "all", notes = "" } = req.body;
+  if (!plate || !owner) return res.status(400).json({ success: false, error: "Falta patente o propietario." });
+  const db = loadSentinelDatabase();
+  db.lprRegistry = db.lprRegistry || [];
+  db.lprRegistry.unshift({ plate: String(plate).toUpperCase(), owner, role, parkId, notes });
+  saveSentinelDatabase(db);
+  res.json({ success: true, db });
+});
+});
+});
+
+app.post("/api/frigate/analyze-event", async (req, res) => {
+  try {
+    const { zoneId, triggerMode = "zone_breach", imageBase64 = null, simulatedContext = "", bbox } = req.body;
+    const zone = activeFrigateZones.find(z => z.id === zoneId) || activeFrigateZones[0];
+
+    // Validar geometría de Frigate si se envía un bounding box
+    const insidePolygon = bbox ? isBottomCenterInsideZone(bbox, zone.points) : true;
+    if (!insidePolygon) {
+      return res.json({
+        success: true,
+        ignoredByZone: true,
+        message: "Objeto detectado fuera del polígono de activación (filtrado estilo Frigate)."
+      });
+    }
+
+    const result = await analyzeWithLumiaVision({
+      zone,
+      triggerMode,
+      imageBase64,
+      simulatedContext
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: `Error en motor Frigate/Lumia: ${error.message}`
+    });
+  }
+});
+
 // Setup Vite server middleware in development
 async function start() {
   if (process.env.NODE_ENV !== "production") {
@@ -2421,3 +2518,6 @@ async function start() {
 start().catch((err) => {
   console.error("Failed to start server:", err);
 });
+
+
+

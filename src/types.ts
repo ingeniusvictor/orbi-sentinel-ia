@@ -1,4 +1,4 @@
-export type CameraStatus =
+﻿export type CameraStatus =
   | "Online"
   | "Offline"
   | "Intermitente"
@@ -8,10 +8,10 @@ export type CameraStatus =
 
 export interface Telemetry {
   poeSwitchStatus: string;
-  wirelessLinkSignal: string; // e.g. "-65 dBm (Excelente)", "Pérdida por rotación"
-  trackerAngle: string; // e.g. "+45°", "-12°"
+  wirelessLinkSignal: string; // e.g. "-65 dBm (Excelente)", "PÃ©rdida por rotaciÃ³n"
+  trackerAngle: string; // e.g. "+45Â°", "-12Â°"
   poeVoltage: string; // e.g. "48.2 V"
-  pingStatus: string; // e.g. "4 ms (0% pérdidas)"
+  pingStatus: string; // e.g. "4 ms (0% pÃ©rdidas)"
 }
 
 export interface Park {
@@ -70,7 +70,7 @@ export interface Camera {
 
 export interface Credential {
   id: string;
-  target: string; // "Cámara 01", "Switch PoE", "NVR principal"
+  target: string; // "CÃ¡mara 01", "Switch PoE", "NVR principal"
   parkId: string;
   username: string;
   passwordMasked: string;
@@ -84,11 +84,11 @@ export interface MotionEvent {
   timestamp: string;
   parkId: string;
   cameraName: string;
-  type: "Persona" | "Vehículo" | "Intrusión" | "Animal" | "Movimiento General";
+  type: "Persona" | "VehÃ­culo" | "IntrusiÃ³n" | "Animal" | "Movimiento General";
   confidence: number;
   description: string;
   processed: boolean;
-  intensity: "Bajo" | "Medio" | "Crítico";
+  intensity: "Bajo" | "Medio" | "CrÃ­tico";
 }
 
 export interface VersionRegistry {
@@ -102,14 +102,14 @@ export interface VersionRegistry {
 
 export type IncidentType =
   | "Persona sospechosa"
-  | "Vehículo detenido"
-  | "Portón abierto"
+  | "VehÃ­culo detenido"
+  | "PortÃ³n abierto"
   | "Movimiento fuera de horario"
-  | "Cámara sin señal"
+  | "CÃ¡mara sin seÃ±al"
   | "Mascota/animal"
   | "Otro";
 
-export type IncidentStatus = "Abierto" | "En revisión" | "Cerrado";
+export type IncidentStatus = "Abierto" | "En revisiÃ³n" | "Cerrado";
 
 export interface AuditEvent {
   eventId: string;
@@ -139,7 +139,7 @@ export interface Clip {
   description?: string;
   privacyZone?: string;
   
-  // Módulo 1G Lifecycle Extensions
+  // MÃ³dulo 1G Lifecycle Extensions
   lifecycleState?: 
     | "Temporary Clip"
     | "Incident Linked"
@@ -175,4 +175,39 @@ export interface Incident {
   status: IncidentStatus;
   observations: string;
   snapshotMockUrl?: string;
+}
+
+// === MÓDULO 17A: FRIGATE ENGINE & LUMIA VISION EXTENSIONS ===
+export interface FrigatePoint {
+  x: number; // Normalizado 0.0 a 1.0
+  y: number; // Normalizado 0.0 a 1.0
+}
+
+export interface FrigateZone {
+  id: string;
+  name: string;
+  cameraId: string;
+  points: FrigatePoint[];
+  triggerObjects: ("Persona" | "Vehículo" | "Animal")[];
+  inertiaFrames: number;
+  loiteringThresholdSec: number;
+  lprEnabled: boolean;
+  faceRecognitionEnabled: boolean;
+  notifyLumia: boolean;
+  color: string;
+}
+
+export interface LumiaVisionAnalysis {
+  timestamp: string;
+  zoneId: string;
+  zoneName: string;
+  detectedType: "Persona" | "Vehículo" | "Intrusión" | "Animal" | "Movimiento General";
+  confidence: number;
+  licensePlate?: string | null;
+  faceIdentity?: string | null;
+  lumiaAction: "HABLAR" | "SILENCIO";
+  lumiaSpeech: string;
+  technicalSummary: string;
+  modelUsed: string;
+  evalRateTokensSec?: number;
 }

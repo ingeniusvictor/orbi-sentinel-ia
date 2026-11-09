@@ -1,6 +1,40 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { Camera, CameraStatus } from "../types";
-import { Video, RefreshCw, Maximize2, Shield, Activity, Power, Tag, Lock, Unlock, CheckCircle, AlertCircle, AlertTriangle } from "lucide-react";
+import {
+  Video,
+  RefreshCw,
+  Maximize2,
+  Shield,
+  Activity,
+  Power,
+  Tag,
+  Lock,
+  Unlock,
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  PenTool,
+  Trash2,
+  Save,
+  RotateCcw,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  ScanFace,
+  Car
+} from "lucide-react";
+
+interface FrigateZoneItem {
+  id: string;
+  name: string;
+  cameraId: string;
+  points: { x: number; y: number }[];
+  triggerObjects: string[];
+  lprEnabled: boolean;
+  faceRecognitionEnabled: boolean;
+  notifyLumia: boolean;
+  color: string;
+}
 
 interface LiveWallProps {
   cameras: Camera[];
@@ -10,6 +44,19 @@ interface LiveWallProps {
   recordingMode?: string;
   onAddClip?: (clip: any) => void;
   setCurrentTab?: (tab: string) => void;
+}
+
+// Algoritmo Ray-Casting de Frigate para evaluar si los pies (bottom-center) pisan el polígono
+function isPointInPolygon(px: number, py: number, polygon: { x: number; y: number }[]): boolean {
+  if (!polygon || polygon.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    const intersect = ((yi > py) !== (yj > py)) && (px < ((xj - xi) * (py - yi)) / (yj - yi + 0.00001) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
 
 export default function LiveWall({
@@ -24,6 +71,21 @@ export default function LiveWall({
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const [filterPark, setFilterPark] = useState<string>("all");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Módulo 17B: Estados del Editor Interactivo de Polígonos Frigate + Puente Lumia
+  const [frigateZones, setFrigateZones] = useState<FrigateZoneItem[]>([]);
+  const [isDrawingZone, setIsDrawingZone] = useState<boolean>(false);
+  const [draftPoints, setDraftPoints] = useState<{ x: number; y: number }[]>([]);
+  const [newZoneName, setNewZoneName] = useState<string>("Zona Acceso / Analítica");
+  const [newZoneColor, setNewZoneColor] = useState<string>("#10b981");
+  const [newZoneLpr, setNewZoneLpr] = useState<boolean>(true);
+  const [newZoneFace, setNewZoneFace] = useState<boolean>(true);
+  const [autoTriggerLumia, setAutoTriggerLumia] = useState<boolean>(false);
+  const [lumiaVoiceOn, setLumiaVoiceOn] = useState<boolean>(true);
+  const [lumiaAnalyzing, setLumiaAnalyzing] = useState<boolean>(false);
+  const [lumiaLastVerdict, setLumiaLastVerdict] = useState<any>(null);
+  const modalCanvasGetterRef = useRef<(() => string | null) | null>(null);
+  const lastAutoTriggerRef = useRef<number>(0);
 
   // Módulo 1E: FFmpeg and Safety Config State
   const [labConfig, setLabConfig] = useState<any>({
@@ -45,6 +107,17 @@ export default function LiveWall({
 
   const countdownTimerRef = useRef<any>(null);
 
+  const fetchFrigateZones = () => {
+    fetch("/api/frigate/zones")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && Array.isArray(data.zones)) {
+          setFrigateZones(data.zones);
+        }
+      })
+      .catch((err) => console.error("Error cargando zonas Frigate:", err));
+  };
+
   useEffect(() => {
     fetch("/api/lab/config")
       .then((res) => res.json())
@@ -54,6 +127,8 @@ export default function LiveWall({
         }
       })
       .catch((err) => console.error("Error fetching lab config inside LiveWall:", err));
+
+    fetchFrigateZones();
   }, [refreshTrigger]);
 
   // Handle countdown simulation when clip is capturing
@@ -63,7 +138,7 @@ export default function LiveWall({
         setActiveCaptureState((prev) => {
           if (!prev) return null;
           if (prev.timeLeft <= 1) {
-            return null; // finished
+            return null;
           }
           return {
             ...prev,
@@ -77,15 +152,104 @@ export default function LiveWall({
     };
   }, [activeCaptureState]);
 
-  // Filtered list of cameras to display
+  const speakLumiaText = (text: string) => {
+    if (!lumiaVoiceOn || !text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "es-CL";
+    u.rate = 1.05;
+    window.speechSynthesis.speak(u);
+  };
+
+  // Guardar nuevo polígono dibujado con el mouse en el servidor
+  const handleSavePolygonZone = async () => {
+    if (!selectedCameraId || draftPoints.length < 3) {
+      alert("Haz al menos 3 clics sobre el video de la cámara para cerrar un polígono válido.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/frigate/zones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newZoneName,
+          cameraId: selectedCameraId,
+          points: draftPoints,
+          triggerObjects: ["Persona", "Vehículo"],
+          lprEnabled: newZoneLpr,
+          faceRecognitionEnabled: newZoneFace,
+          notifyLumia: true,
+          color: newZoneColor
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFrigateZones(data.zones);
+        setDraftPoints([]);
+        setIsDrawingZone(false);
+      }
+    } catch (e) {
+      console.error("Error guardando polígono:", e);
+    }
+  };
+
+  const handleDeleteZone = async (zoneId: string) => {
+    try {
+      const res = await fetch(`/api/frigate/zones/${zoneId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setFrigateZones(data.zones);
+      }
+    } catch (e) {
+      console.error("Error eliminando zona:", e);
+    }
+  };
+
+  // Enviar snapshot del canvas actual a qwen3.5:4b-fast cuando un objeto pisa la zona
+  const handleAnalyzeCameraWithLumia = async (camera: Camera, triggeredZone?: FrigateZoneItem) => {
+    if (lumiaAnalyzing) return;
+    setLumiaAnalyzing(true);
+    try {
+      const snapshotB64 = modalCanvasGetterRef.current ? modalCanvasGetterRef.current() : null;
+      const res = await fetch("/api/frigate/analyze-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          zoneId: triggeredZone?.id || "zone-porton-lpr",
+          triggerMode: triggeredZone?.lprEnabled ? "lpr_scan" : "zone_breach",
+          imageBase64: snapshotB64,
+          simulatedContext: `Cámara activa: ${camera.name} (${camera.ip}). Zona poligonal activada: ${
+            triggeredZone?.name || "Polígono Perimetral"
+          }. LPR=${triggeredZone?.lprEnabled ? "ON" : "OFF"}, FaceID=${
+            triggeredZone?.faceRecognitionEnabled ? "ON" : "OFF"
+          }.`
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLumiaLastVerdict(data);
+        if (data.lumiaAction === "HABLAR" && data.lumiaSpeech) {
+          speakLumiaText(data.lumiaSpeech);
+        }
+      }
+    } catch (err) {
+      console.error("Error consultando a Lumia desde LiveWall:", err);
+    } finally {
+      setLumiaAnalyzing(false);
+    }
+  };
+
   const filteredCameras = cameras.filter((cam) => {
     if (filterPark === "all") return true;
     return cam.parkId === filterPark;
   });
 
   const selectedCamera = cameras.find((c) => c.id === selectedCameraId) || null;
+  const selectedCameraZones = frigateZones.filter(
+    (z) => z.cameraId === selectedCameraId || (selectedCameraId === "cam-01" && z.cameraId === "lab-cam-01")
+  );
 
-  // Render role-appropriate banner
   const renderLabStatusBanner = () => {
     const allFlagsActive = labConfig.realConnectorsEnabled && labConfig.recordingEnabled && labConfig.ffmpegAdapterEnabled;
     const isRealEnabled = allFlagsActive && labConfig.ffmpegDetected;
@@ -156,17 +320,19 @@ export default function LiveWall({
       );
     }
 
-    // Technical / Admin Banner
     return (
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-emerald-400" />
             <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-              Sentinel FFmpeg Recording Lab Status
+              Sentinel FFmpeg Recording Lab Status & Frigate Polygon Engine
             </h4>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[9px] font-mono font-bold px-2.5 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+              Zonas Frigate Activas: {frigateZones.length}
+            </span>
             <span className={`text-[9px] font-mono font-bold px-2.5 py-0.5 rounded border uppercase flex items-center gap-1 ${
               testState === "Running" ? "bg-amber-500/15 text-amber-400 border-amber-500/30 animate-pulse" :
               testState === "Validated" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
@@ -220,19 +386,16 @@ export default function LiveWall({
           </div>
 
           <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-850 space-y-1">
-            <span className="text-slate-500 block uppercase tracking-wider text-[9px]">Sandbox Disk Path:</span>
-            <span className="font-bold text-slate-300 truncate block" title={labConfig.storagePath}>
-              orbi-sentinel-lab-recordings/
+            <span className="text-slate-500 block uppercase tracking-wider text-[9px]">Editor de Zonas Frigate:</span>
+            <span className="font-bold text-emerald-400 truncate block">
+              ✓ Click en "Maximizar Stream" para dibujar
             </span>
           </div>
 
           <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-850 space-y-1">
-            <span className="text-slate-500 block uppercase tracking-wider text-[9px]">Write Permissions:</span>
-            <span className={`font-bold uppercase ${
-              labConfig.writePermissionStatus === "verified" ? "text-emerald-400" :
-              labConfig.writePermissionStatus === "mock" ? "text-sky-400" : "text-amber-400"
-            }`}>
-              {labConfig.writePermissionStatus === "verified" ? "✓ VERIFIED" : labConfig.writePermissionStatus}
+            <span className="text-slate-500 block uppercase tracking-wider text-[9px]">Cerebro Visual Lumia:</span>
+            <span className="font-bold text-sky-400 uppercase">
+              qwen3.5:4b-fast (100% GPU)
             </span>
           </div>
 
@@ -251,22 +414,6 @@ export default function LiveWall({
             </div>
           </div>
         </div>
-
-        {!allFlagsActive && (
-          <p className="text-[10px] text-amber-400/80 italic font-mono leading-normal bg-amber-500/5 p-2 rounded border border-amber-500/10">
-            💡 Captura real deshabilitada en backend: Para realizar ingesta real desde streams RTSP de laboratorio, asegúrese de establecer ORBI_SENTINEL_LAB_REAL_CONNECTORS=true, ORBI_SENTINEL_LAB_RECORDING_ENABLED=true y ORBI_SENTINEL_FFMPEG_ADAPTER_ENABLED=true en su configuración .env y que FFmpeg esté instalado localmente.
-          </p>
-        )}
-        {allFlagsActive && !labConfig.ffmpegDetected && (
-          <p className="text-[10px] text-rose-400/80 italic font-mono leading-normal bg-rose-500/5 p-2 rounded border border-rose-500/10">
-            ⚠️ Banderas de seguridad activas pero FFmpeg binary no detectado en el host local. Las capturas generarán fallbacks simulados seguros (mock buffers).
-          </p>
-        )}
-        {isRealEnabled && (
-          <p className="text-[10px] text-emerald-400/80 italic font-mono leading-normal bg-emerald-500/5 p-2 rounded border border-emerald-500/10">
-            🚀 FFmpeg Lab Capture Enabled — Las capturas manuales de 10s/15s/30s y 60s se realizarán en caliente sobre las cámaras Dahua autorizadas conectadas al switch PoE.
-          </p>
-        )}
       </div>
     );
   };
@@ -276,14 +423,13 @@ export default function LiveWall({
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
         <div>
-          <h3 className="text-lg font-semibold text-white">Sentinel Live Wall</h3>
+          <h3 className="text-lg font-semibold text-white">Sentinel Live Wall & Frigate Zone Studio</h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Mosaico de visualización CCTV multi-marca. Emulación de transmisión RTSP para Laboratorio Dahua.
+            Mosaico CCTV multi-marca. Haz clic en cualquier cámara para dibujar polígonos de analítica con el mouse y conectar con Lumia.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Park Filter */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 font-mono">Filtrar Recinto:</span>
             <select
@@ -315,35 +461,47 @@ export default function LiveWall({
 
       {/* Grid of streams */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredCameras.map((camera) => (
-          <CameraFeedCard
-            key={camera.id}
-            camera={camera}
-            onClick={() => setSelectedCameraId(camera.id)}
-            isSelected={selectedCameraId === camera.id}
-            refreshTrigger={refreshTrigger}
-            userRole={userRole}
-            isLabRecordingEnabled={isLabRecordingEnabled}
-            recordingMode={recordingMode}
-            onAddClip={onAddClip}
-            labConfig={labConfig}
-            onCaptureStart={(camName, dur) => {
-              setActiveCaptureState({
-                cameraName: camName,
-                duration: dur,
-                timeLeft: dur,
-                active: true
-              });
-            }}
-          />
-        ))}
+        {filteredCameras.map((camera) => {
+          const camZones = frigateZones.filter(
+            (z) => z.cameraId === camera.id || (camera.id === "cam-01" && z.cameraId === "lab-cam-01")
+          );
+          return (
+            <CameraFeedCard
+              key={camera.id}
+              camera={camera}
+              zones={camZones}
+              onClick={() => {
+                setSelectedCameraId(camera.id);
+                setDraftPoints([]);
+                setIsDrawingZone(false);
+                setLumiaLastVerdict(null);
+              }}
+              isSelected={selectedCameraId === camera.id}
+              refreshTrigger={refreshTrigger}
+              userRole={userRole}
+              isLabRecordingEnabled={isLabRecordingEnabled}
+              recordingMode={recordingMode}
+              onAddClip={onAddClip}
+              labConfig={labConfig}
+              onCaptureStart={(camName, dur) => {
+                setActiveCaptureState({
+                  cameraName: camName,
+                  duration: dur,
+                  timeLeft: dur,
+                  active: true
+                });
+              }}
+            />
+          );
+        })}
       </div>
 
-      {/* Modal / Detailed stream view */}
+      {/* Modal / Detailed stream view + EDITOR INTERACTIVO DE POLÍGONOS FRIGATE CON EL MOUSE */}
       {selectedCamera && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-850 rounded-2xl max-w-4xl w-full overflow-hidden">
-            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-5xl w-full overflow-hidden my-auto shadow-2xl">
+            {/* Barra superior del modal */}
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className={`w-2.5 h-2.5 rounded-full ${
                   selectedCamera.status === "Online" ? "bg-emerald-500" :
@@ -351,19 +509,199 @@ export default function LiveWall({
                 }`}></span>
                 <span className="font-bold text-white text-sm">{selectedCamera.name}</span>
                 <span className="text-xs text-slate-500 font-mono">[{selectedCamera.ip}]</span>
+                <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold rounded">
+                  {selectedCameraZones.length} Zonas Frigate
+                </span>
               </div>
-              <button
-                onClick={() => setSelectedCameraId(null)}
-                className="text-slate-400 hover:text-white text-xs bg-slate-850 hover:bg-slate-800 px-3 py-1 rounded"
-              >
-                Cerrar Panel
-              </button>
+
+              <div className="flex items-center gap-2 font-mono text-xs">
+                {userRole !== "conserje" && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsDrawingZone(!isDrawingZone);
+                        setDraftPoints([]);
+                      }}
+                      className={`px-3 py-1 rounded-lg border flex items-center gap-1.5 font-bold transition-all ${
+                        isDrawingZone
+                          ? "bg-emerald-500 text-slate-950 border-emerald-400"
+                          : "bg-slate-900 hover:bg-slate-800 text-emerald-400 border-emerald-500/30"
+                      }`}
+                    >
+                      <PenTool className="w-3.5 h-3.5" />
+                      {isDrawingZone ? "Dibujando con Mouse (Activo)" : "+ Trazar Zona con Mouse"}
+                    </button>
+
+                    <button
+                      onClick={() => handleAnalyzeCameraWithLumia(selectedCamera, selectedCameraZones[0])}
+                      disabled={lumiaAnalyzing}
+                      className="px-3 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-400 font-bold flex items-center gap-1.5 transition-all disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {lumiaAnalyzing ? "Analizando..." : "Consultar a Lumia (4B)"}
+                    </button>
+
+                    <button
+                      onClick={() => setLumiaVoiceOn(!lumiaVoiceOn)}
+                      className={`p-1.5 rounded-lg border ${
+                        lumiaVoiceOn
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                          : "bg-slate-900 border-slate-800 text-slate-500"
+                      }`}
+                      title="Activar/Silenciar voz de Lumia"
+                    >
+                      {lumiaVoiceOn ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={() => {
+                    setSelectedCameraId(null);
+                    setIsDrawingZone(false);
+                    setDraftPoints([]);
+                  }}
+                  className="text-slate-400 hover:text-white text-xs bg-slate-850 hover:bg-slate-800 px-3 py-1 rounded-lg border border-slate-700"
+                >
+                  Cerrar Panel
+                </button>
+              </div>
             </div>
 
-            <div className="aspect-video w-full bg-black relative">
-              <CameraStreamCanvas camera={selectedCamera} isExpanded={true} refreshTrigger={refreshTrigger} />
+            {/* Barra de configuración rápida cuando estás dibujando con el mouse */}
+            {isDrawingZone && (
+              <div className="p-3 bg-slate-950/95 border-b border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-emerald-400 font-bold">
+                    🖱️ Haz clic en el video para marcar puntos ({draftPoints.length} vértices):
+                  </span>
+                  <input
+                    type="text"
+                    value={newZoneName}
+                    onChange={(e) => setNewZoneName(e.target.value)}
+                    placeholder="Nombre de la zona..."
+                    className="bg-slate-900 border border-slate-700 text-white px-2.5 py-1 rounded text-xs focus:outline-none focus:border-emerald-400"
+                  />
+                  <select
+                    value={newZoneColor}
+                    onChange={(e) => setNewZoneColor(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 text-slate-200 px-2 py-1 rounded text-xs"
+                  >
+                    <option value="#10b981">Verde (Acceso / LPR)</option>
+                    <option value="#f43f5e">Rojo (Intrusión Crítica)</option>
+                    <option value="#38bdf8">Azul (Centinela Lumia)</option>
+                    <option value="#f59e0b">Ámbar (Advertencia Operativa)</option>
+                  </select>
+                  <label className="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newZoneLpr}
+                      onChange={(e) => setNewZoneLpr(e.target.checked)}
+                    />
+                    LPR Patentes
+                  </label>
+                  <label className="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newZoneFace}
+                      onChange={(e) => setNewZoneFace(e.target.checked)}
+                    />
+                    Biometría Facial
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setDraftPoints((prev) => prev.slice(0, -1))}
+                    disabled={draftPoints.length === 0}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Deshacer Punto
+                  </button>
+                  <button
+                    onClick={handleSavePolygonZone}
+                    disabled={draftPoints.length < 3}
+                    className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    Guardar Polígono ({draftPoints.length})
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Contenedor de Video + Lienzo Interactivo de Polígonos con el Mouse */}
+            <div
+              className={`aspect-video w-full bg-black relative select-none ${
+                isDrawingZone ? "cursor-crosshair" : ""
+              }`}
+              onClick={(e) => {
+                if (!isDrawingZone) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = Number(((e.clientX - rect.left) / rect.width).toFixed(4));
+                const y = Number(((e.clientY - rect.top) / rect.height).toFixed(4));
+                setDraftPoints((prev) => [...prev, { x, y }]);
+              }}
+            >
+              <CameraStreamCanvas
+                camera={selectedCamera}
+                isExpanded={true}
+                refreshTrigger={refreshTrigger}
+                zones={selectedCameraZones}
+                draftPoints={draftPoints}
+                draftColor={newZoneColor}
+                registerSnapshotGetter={(fn) => {
+                  modalCanvasGetterRef.current = fn;
+                }}
+                onZoneBreach={(zone) => {
+                  if (!autoTriggerLumia) return;
+                  const now = Date.now();
+                  if (now - lastAutoTriggerRef.current > 18000) {
+                    lastAutoTriggerRef.current = now;
+                    handleAnalyzeCameraWithLumia(selectedCamera, zone);
+                  }
+                }}
+              />
             </div>
 
+            {/* Respuesta de Lumia Vision si se ejecutó un análisis en este canal */}
+            {lumiaLastVerdict && (
+              <div className="px-5 py-3 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono text-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase">
+                      VEREDICTO LUMIA ({lumiaLastVerdict.engine}):
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                      lumiaLastVerdict.lumiaAction === "SILENCIO"
+                        ? "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                        : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    }`}>
+                      {lumiaLastVerdict.lumiaAction}
+                    </span>
+                    {lumiaLastVerdict.licensePlate && (
+                      <span className="px-2 py-0.5 rounded text-[9px] bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold">
+                        LPR: {lumiaLastVerdict.licensePlate}
+                      </span>
+                    )}
+                    {lumiaLastVerdict.faceIdentity && (
+                      <span className="px-2 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-400 border border-sky-500/30 font-bold">
+                        ID: {lumiaLastVerdict.faceIdentity}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-200 text-[11px]">{lumiaLastVerdict.technicalSummary}</p>
+                  {lumiaLastVerdict.lumiaSpeech && (
+                    <p className="text-emerald-400 text-[11px] font-bold">
+                      🗣️ "{lumiaLastVerdict.lumiaSpeech}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Panel inferior con datos técnicos + Lista de Zonas Poligonales de la Cámara */}
             {userRole === "conserje" ? (
               <div className="p-5 bg-slate-950/50 text-xs text-slate-300 font-mono space-y-2">
                 <div className="text-emerald-400 font-bold uppercase tracking-wider mb-2">Panel Simplificado de Conserjería</div>
@@ -372,32 +710,75 @@ export default function LiveWall({
                 <div>Estado de Almacenamiento: <span className="text-sky-400 font-bold">Grabación Activa en Búfer Local</span></div>
               </div>
             ) : (
-              <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-950/50">
+              <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-950/50 border-t border-slate-800">
                 <div>
-                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Datos del Stream</span>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Datos del Stream & Red</span>
                   <div className="mt-1 space-y-1 text-xs text-slate-300 font-mono">
                     <div>RTSP URL: <span className="text-slate-400 break-all">{selectedCamera.rtspUrl}</span></div>
-                    <div>ONVIF Port: <span className="text-sky-400">{selectedCamera.onvifPort}</span></div>
-                    <div>Resolución: <span className="text-emerald-400">{selectedCamera.resolution}</span></div>
+                    <div>Puerto PoE: <span className="text-amber-400">Puerto {selectedCamera.poePort}</span> | Ping: <span className="text-emerald-400">{selectedCamera.lastPing}</span></div>
+                    <div>Resolución: <span className="text-emerald-400">{selectedCamera.resolution}</span> ({selectedCamera.model})</div>
                   </div>
                 </div>
+
+                {/* Lista de Zonas Poligonales Frigate en esta Cámara */}
                 <div>
-                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Canal de Red PoE</span>
-                  <div className="mt-1 space-y-1 text-xs text-slate-300 font-mono">
-                    <div>Puerto PoE Switch: <span className="text-amber-400">Puerto {selectedCamera.poePort}</span></div>
-                    <div>Último Ping: <span className={`font-bold ${selectedCamera.lastPing.includes("Timeout") ? "text-rose-400" : "text-emerald-400"}`}>{selectedCamera.lastPing}</span></div>
-                    <div>Modelo de Cámara: <span className="text-slate-400">{selectedCamera.model}</span></div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">
+                      Zonas Poligonales Activas ({selectedCameraZones.length})
+                    </span>
+                  </div>
+                  <div className="mt-1.5 space-y-1.5 max-h-28 overflow-y-auto pr-1 font-mono text-[11px]">
+                    {selectedCameraZones.map((z) => (
+                      <div
+                        key={z.id}
+                        className="flex items-center justify-between bg-slate-900/90 border border-slate-800 px-2.5 py-1.5 rounded-lg"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
+                          <span className="text-slate-200 font-bold truncate" title={z.name}>{z.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {z.lprEnabled && <span className="text-[9px] text-amber-400">LPR</span>}
+                          {z.faceRecognitionEnabled && <span className="text-[9px] text-sky-400">FACE</span>}
+                          <button
+                            onClick={() => handleDeleteZone(z.id)}
+                            className="text-rose-400 hover:text-rose-300 p-0.5"
+                            title="Eliminar zona"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {selectedCameraZones.length === 0 && (
+                      <p className="text-[10px] text-slate-500 italic">
+                        Sin zonas en esta cámara. Usa "+ Trazar Zona con Mouse" arriba.
+                      </p>
+                    )}
                   </div>
                 </div>
+
                 <div>
-                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Motor de Visión IA</span>
-                  <div className="mt-2 p-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
-                    <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-mono font-bold">
-                      <Shield className="w-3.5 h-3.5" />
-                      <span>ORBI Vision Core Activo</span>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Disparo Automático a Lumia</span>
+                  <div className="mt-2 p-2.5 bg-emerald-500/5 border border-emerald-500/15 rounded-lg space-y-2 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+                        <Shield className="w-3.5 h-3.5" />
+                        Auto-Disparo por Zona
+                      </span>
+                      <button
+                        onClick={() => setAutoTriggerLumia(!autoTriggerLumia)}
+                        className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          autoTriggerLumia
+                            ? "bg-emerald-500 text-slate-950"
+                            : "bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        {autoTriggerLumia ? "ACTIVO" : "MANUAL"}
+                      </button>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1 leading-normal">
-                      Analizando patrones de movimiento de personas, siluetas de vehículos de contratistas y cruces perimetrales en tiempo real.
+                    <p className="text-[10px] text-slate-400 leading-normal">
+                      Cuando los pies del objeto (`bottom_center`) cruzan tu polígono dibujado, envía el fotograma a `qwen3.5:4b-fast` y Lumia anuncia la alerta.
                     </p>
                   </div>
                 </div>
@@ -413,6 +794,7 @@ export default function LiveWall({
 interface CameraFeedCardProps {
   key?: string;
   camera: Camera;
+  zones?: FrigateZoneItem[];
   onClick: () => void;
   isSelected: boolean;
   refreshTrigger: number;
@@ -426,6 +808,7 @@ interface CameraFeedCardProps {
 
 function CameraFeedCard({
   camera,
+  zones = [],
   onClick,
   isSelected,
   refreshTrigger,
@@ -436,9 +819,7 @@ function CameraFeedCard({
   labConfig,
   onCaptureStart
 }: CameraFeedCardProps) {
-  // Status styling configurations
   const getStatusBadge = (cam: Camera) => {
-    // 1. If Conserje role, show simplified status badges
     if (userRole === "conserje") {
       const badgesConserje: React.ReactNode[] = [];
       if (cam.privacyZone === "private") {
@@ -475,10 +856,16 @@ function CameraFeedCard({
       return <div className="flex flex-col items-end gap-1 shrink-0">{badgesConserje}</div>;
     }
 
-    // 2. Admin / Técnico role gets detailed badges
     const badges: React.ReactNode[] = [];
 
-    // Privacy Zone
+    if (zones.length > 0) {
+      badges.push(
+        <span key="frigate-z" className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
+          ⬡ {zones.length} Zona(s) Frigate
+        </span>
+      );
+    }
+
     if (cam.privacyZone === "private") {
       badges.push(
         <span key="privacy" className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
@@ -487,7 +874,6 @@ function CameraFeedCard({
       );
     }
 
-    // Health Score Badges
     if (cam.healthScore !== undefined) {
       if (cam.healthScore >= 85) {
         badges.push(
@@ -516,7 +902,6 @@ function CameraFeedCard({
       }
     }
 
-    // FFmpeg Capture Readiness badge
     const isPrivate = cam.privacyZone === "private";
     const isOnline = cam.status === "Online";
 
@@ -538,75 +923,13 @@ function CameraFeedCard({
             🔴 Capture Ready (FFmpeg)
           </span>
         );
-      } else if (labConfig?.ffmpegDetected && !cam.realConnectorAllowed) {
-        badges.push(
-          <span key="cap-uneligible" className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-            🔵 Mock Only (No eligible)
-          </span>
-        );
-      } else if (!labConfig?.ffmpegDetected) {
-        badges.push(
-          <span key="cap-missing" className="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-            ⚠️ FFmpeg Missing
-          </span>
-        );
       } else {
         badges.push(
           <span key="cap-mock" className="bg-sky-500/10 text-sky-400 border border-sky-500/20 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-            🔵 Mock Clip Only
+            🔵 Mock Clip Ready
           </span>
         );
       }
-    }
-
-    // Connector Mode & Capabilities
-    if (cam.realConnectorAllowed === false) {
-      badges.push(
-        <span key="disabled" className="bg-slate-500/15 text-slate-400 border border-slate-500/25 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-          Connector disabled
-        </span>
-      );
-    }
-
-    // Core Connectivity Status
-    if (cam.status === "Offline") {
-      badges.push(
-        <span key="off" className="bg-rose-500/15 text-rose-400 border border-rose-500/25 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-          Offline
-        </span>
-      );
-    } else if (cam.status === "Sin Acceso") {
-      badges.push(
-        <span key="sin-acc" className="bg-purple-500/15 text-purple-400 border border-purple-500/25 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-          Auth required
-        </span>
-      );
-    } else if (cam.status === "Online") {
-      if (cam.isLab || cam.parkId === "dahua-lab") {
-        badges.push(
-          <span key="snap" className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-            Snapshot OK
-          </span>
-        );
-      } else {
-        badges.push(
-          <span key="online" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-            Online
-          </span>
-        );
-      }
-    } else if (cam.status === "Pendiente Validar") {
-      badges.push(
-        <span key="rt-pend" className="bg-amber-500/10 text-amber-500 border border-amber-500/25 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-          Preview pending
-        </span>
-      );
-    } else {
-      badges.push(
-        <span key="status" className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider">
-          {cam.status}
-        </span>
-      );
     }
 
     return (
@@ -618,7 +941,6 @@ function CameraFeedCard({
 
   return (
     <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-all duration-150 flex flex-col justify-between">
-      {/* Feed Title Bar */}
       <div className="p-3 bg-slate-950/80 border-b border-slate-850 flex items-center justify-between">
         <div>
           <h4 className="text-xs font-bold text-white tracking-wide truncate max-w-[150px]" title={camera.name}>
@@ -629,22 +951,19 @@ function CameraFeedCard({
         {getStatusBadge(camera)}
       </div>
 
-      {/* Feed Stream Box */}
       <div className="aspect-video w-full bg-black relative overflow-hidden group">
-        <CameraStreamCanvas camera={camera} isExpanded={false} refreshTrigger={refreshTrigger} />
+        <CameraStreamCanvas camera={camera} isExpanded={false} refreshTrigger={refreshTrigger} zones={zones} />
 
-        {/* Hover overlay with detail prompt */}
         {camera.status !== "Offline" && camera.status !== "Sin Acceso" && (
           <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-150 gap-2 cursor-pointer" onClick={onClick}>
             <span className="text-xs font-mono bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold shadow-lg flex items-center gap-1">
               <Maximize2 className="w-3.5 h-3.5" />
-              Maximizar Stream
+              Maximizar / Dibujar Zonas
             </span>
           </div>
         )}
       </div>
 
-      {/* Live status indicators */}
       <div className="p-3 bg-slate-950/40 border-t border-slate-850 text-[10px] font-mono text-slate-400 flex items-center justify-between gap-1">
         <span className="flex items-center gap-1 shrink-0">
           <Activity className="w-3 h-3 text-sky-400" />
@@ -662,7 +981,6 @@ function CameraFeedCard({
                 return;
               }
 
-              // Duration of manual events is 15 seconds
               const durationSecs = 15;
 
               fetch("/api/lab/ffmpeg/capture-clip", {
@@ -691,7 +1009,7 @@ function CameraFeedCard({
                   if (onCaptureStart && data.source === "lab real") {
                     onCaptureStart(camera.name, durationSecs);
                   }
-                  alert(`✓ Evento marcado con éxito (${data.status}).\nSegmento de ${data.durationSeconds}s guardado para: ${camera.name}.\nEstado: ${data.source === "lab real" ? "Grabación Real FFmpeg activa" : "Simulación Mock activa"}.`);
+                  alert(`✓ Evento marcado con éxito (${data.status}).\nSegmento de ${data.durationSeconds}s guardado para: ${camera.name}.`);
                 } else {
                   alert(`❌ Error al capturar: ${data.error || "Desconocido"}`);
                 }
@@ -718,10 +1036,33 @@ interface CameraStreamCanvasProps {
   camera: Camera;
   isExpanded: boolean;
   refreshTrigger: number;
+  zones?: FrigateZoneItem[];
+  draftPoints?: { x: number; y: number }[];
+  draftColor?: string;
+  registerSnapshotGetter?: (getter: () => string | null) => void;
+  onZoneBreach?: (zone: FrigateZoneItem) => void;
 }
 
-function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStreamCanvasProps) {
+function CameraStreamCanvas({
+  camera,
+  isExpanded,
+  refreshTrigger,
+  zones = [],
+  draftPoints = [],
+  draftColor = "#10b981",
+  registerSnapshotGetter,
+  onZoneBreach
+}: CameraStreamCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (registerSnapshotGetter) {
+      registerSnapshotGetter(() => {
+        if (!canvasRef.current) return null;
+        return canvasRef.current.toDataURL("image/jpeg", 0.85);
+      });
+    }
+  }, [registerSnapshotGetter]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -732,32 +1073,15 @@ function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStream
     let animationId: number;
     let frameCount = 0;
 
-    // Simulation parameters
-    const particles: { x: number; y: number; size: number; speedX: number; speedY: number }[] = [];
-    for (let i = 0; i < 8; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 2 + 1,
-        speedX: (Math.random() - 0.5) * 0.4,
-        speedY: (Math.random() - 0.5) * 0.4,
-      });
-    }
-
-    // Interactive tracker angle if applicable
-    let angleShift = 0;
-
     const render = () => {
       frameCount++;
       const w = canvas.width;
       const h = canvas.height;
 
-      // Handle offline or missing video states first
       if (camera.status === "Offline") {
-        ctx.fillStyle = "#0c0a09"; // Stone 950
+        ctx.fillStyle = "#0c0a09";
         ctx.fillRect(0, 0, w, h);
 
-        // Analog Static Noise pattern
         const imgData = ctx.createImageData(w, h);
         const data = imgData.data;
         for (let i = 0; i < data.length; i += 4) {
@@ -769,7 +1093,6 @@ function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStream
         }
         ctx.putImageData(imgData, 0, 0);
 
-        // Red Offline text
         ctx.fillStyle = "#ef4444";
         ctx.font = "bold 14px monospace";
         ctx.textAlign = "center";
@@ -782,7 +1105,7 @@ function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStream
       }
 
       if (camera.status === "Sin Acceso") {
-        ctx.fillStyle = "#1e1b4b"; // Indigo dark
+        ctx.fillStyle = "#1e1b4b";
         ctx.fillRect(0, 0, w, h);
 
         ctx.fillStyle = "#a78bfa";
@@ -798,7 +1121,7 @@ function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStream
       }
 
       if (camera.status === "Sin Stream") {
-        ctx.fillStyle = "#1e293b"; // Slate dark
+        ctx.fillStyle = "#1e293b";
         ctx.fillRect(0, 0, w, h);
 
         ctx.fillStyle = "#38bdf8";
@@ -812,52 +1135,48 @@ function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStream
         return;
       }
 
-      // Draw background sky & terrain
+      // Sky & Solar Park Terrain
       const gradient = ctx.createLinearGradient(0, 0, 0, h);
-      gradient.addColorStop(0, "#0f172a"); // deep blue sky
-      gradient.addColorStop(0.5, "#1e293b"); // light horizon
-      gradient.addColorStop(0.55, "#065f46"); // green solar plant base
-      gradient.addColorStop(1, "#022c22"); // dark ground
+      gradient.addColorStop(0, "#0f172a");
+      gradient.addColorStop(0.5, "#1e293b");
+      gradient.addColorStop(0.55, "#065f46");
+      gradient.addColorStop(1, "#022c22");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, w, h);
 
-      // Draw Sun
+      // Sun
       ctx.fillStyle = "#fef08a";
       ctx.shadowColor = "#eab308";
       ctx.shadowBlur = 15;
       ctx.beginPath();
       ctx.arc(w * 0.8, h * 0.25, 12, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = 0; // reset
+      ctx.shadowBlur = 0;
 
-      // Draw solar panels (Trackers representation)
+      // Solar Trackers
       ctx.strokeStyle = "#475569";
       ctx.lineWidth = 2;
       ctx.fillStyle = "#1e1b4b";
 
-      // Rotate panels depending on simulator mode
       const isAlhue = camera.parkId === "alhue";
       const trackerRotation = isAlhue ? Math.sin(frameCount * 0.01) * 35 : 15;
 
-      // Draw representative solar rack 1
       ctx.save();
       ctx.translate(w * 0.3, h * 0.65);
       ctx.rotate((trackerRotation * Math.PI) / 180);
       ctx.fillRect(-35, -8, 70, 16);
       ctx.strokeRect(-35, -8, 70, 16);
-      ctx.fillStyle = "#3b82f6"; // Solar cells highlight
+      ctx.fillStyle = "#3b82f6";
       ctx.fillRect(-30, -5, 25, 10);
       ctx.fillRect(5, -5, 25, 10);
       ctx.restore();
 
-      // Support post
       ctx.beginPath();
       ctx.moveTo(w * 0.3, h * 0.65);
       ctx.lineTo(w * 0.3, h * 0.85);
       ctx.strokeStyle = "#64748b";
       ctx.stroke();
 
-      // Draw representative solar rack 2
       ctx.save();
       ctx.translate(w * 0.65, h * 0.7);
       ctx.rotate((trackerRotation * Math.PI) / 180);
@@ -873,94 +1192,137 @@ function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStream
       ctx.lineTo(w * 0.65, h * 0.9);
       ctx.stroke();
 
-      // Draw grass or vegetation in Parral case
-      if (camera.parkId === "parral") {
-        ctx.fillStyle = "#15803d";
-        ctx.beginPath();
-        for (let i = 0; i < w; i += 20) {
-          const vegHeight = 10 + Math.sin(i * 0.05 + frameCount * 0.05) * 4;
-          ctx.lineTo(i, h - vegHeight);
-          ctx.lineTo(i + 10, h);
-        }
-        ctx.fill();
-      }
-
-      // Draw fence or wireless transmission indicators if "Intermitente"
-      if (camera.status === "Intermitente") {
-        // Overlay blinking interference noise lines
-        if (Math.random() > 0.7) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-          ctx.fillRect(0, Math.random() * h, w, 2);
-        }
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.4)";
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(w * 0.1, h * 0.1);
-        ctx.lineTo(w * 0.9, h * 0.1);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      // Live video scanline overlay effect
-      ctx.fillStyle = "rgba(255, 255, 255, 0.015)";
-      for (let i = 0; i < h; i += 4) {
-        ctx.fillRect(0, i, w, 1);
-      }
-
-      // Draw ORBI Vision Intelligent Bounding Box Simulation
+      // Posición del sujeto y punto de anclaje inferior estilo Frigate (bottom-center)
       const timeFactor = frameCount * 0.015;
-      const boxX = w * 0.45 + Math.sin(timeFactor) * (w * 0.15);
-      const boxY = h * 0.55 + Math.cos(timeFactor * 0.7) * (h * 0.08);
+      const boxW = isExpanded ? 65 : 40;
+      const boxH = isExpanded ? 90 : 55;
+      const boxX = w * 0.45 + Math.sin(timeFactor) * (w * 0.22);
+      const boxY = h * 0.52 + Math.cos(timeFactor * 0.7) * (h * 0.12);
 
-      ctx.strokeStyle = "#10b981"; // Emerald tracker color
-      ctx.lineWidth = 1.5;
+      // Coordenadas normalizadas (0.0 a 1.0) de los pies del sujeto
+      const footNormX = (boxX + boxW / 2) / w;
+      const footNormY = (boxY + boxH) / h;
 
-      // Draw targeted box
-      ctx.strokeRect(boxX, boxY, 40, 55);
+      // 1. DIBUJAR ZONAS POLIGONALES FRIGATE GUARDADAS Y VERIFICAR CRUCE
+      let breachedZone: FrigateZoneItem | null = null;
+      zones.forEach((zone) => {
+        if (!zone.points || zone.points.length < 3) return;
+        const isInside = isPointInPolygon(footNormX, footNormY, zone.points);
+        if (isInside) {
+          breachedZone = zone;
+        }
 
-      // Box corner design
-      ctx.fillStyle = "#10b981";
-      // Top left
-      ctx.fillRect(boxX - 2, boxY - 2, 8, 2);
-      ctx.fillRect(boxX - 2, boxY - 2, 2, 8);
-      // Top right
-      ctx.fillRect(boxX + 34, boxY - 2, 8, 2);
-      ctx.fillRect(boxX + 40, boxY - 2, 2, 8);
-      // Bottom left
-      ctx.fillRect(boxX - 2, boxY + 55, 8, 2);
-      ctx.fillRect(boxX - 2, boxY + 49, 2, 8);
-      // Bottom right
-      ctx.fillRect(boxX + 34, boxY + 55, 8, 2);
-      ctx.fillRect(boxX + 40, boxY + 49, 2, 8);
+        ctx.save();
+        ctx.beginPath();
+        zone.points.forEach((pt, idx) => {
+          const px = pt.x * w;
+          const py = pt.y * h;
+          if (idx === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
 
-      // Tag Label above the box
-      ctx.fillStyle = "#10b981";
-      ctx.font = "9px monospace";
-      ctx.fillText("HUMANO [94%]", boxX, boxY - 6);
+        ctx.fillStyle = isInside ? "rgba(244, 63, 94, 0.28)" : `${zone.color}22`;
+        ctx.fill();
+        ctx.lineWidth = isInside ? 2.5 : 1.5;
+        ctx.strokeStyle = isInside ? "#f43f5e" : zone.color;
+        ctx.setLineDash(isInside ? [] : [5, 3]);
+        ctx.stroke();
 
-      // Render camera OSD (On Screen Display)
+        // Etiqueta de la zona en el primer vértice
+        const firstX = zone.points[0].x * w;
+        const firstY = zone.points[0].y * h;
+        ctx.fillStyle = isInside ? "#f43f5e" : zone.color;
+        ctx.font = isExpanded ? "bold 11px monospace" : "bold 8px monospace";
+        ctx.textAlign = "left";
+        ctx.fillText(
+          isInside ? `🚨 EN ZONA: ${zone.name.toUpperCase()}` : `⬡ ${zone.name}`,
+          firstX + 4,
+          Math.max(14, firstY - 6)
+        );
+        ctx.restore();
+      });
+
+      if (breachedZone && onZoneBreach) {
+        onZoneBreach(breachedZone);
+      }
+
+      // 2. DIBUJAR POLÍGONO EN BORRADOR MIENTRAS EL USUARIO HACE CLIC CON EL MOUSE
+      if (draftPoints && draftPoints.length > 0) {
+        ctx.save();
+        ctx.beginPath();
+        draftPoints.forEach((pt, idx) => {
+          const px = pt.x * w;
+          const py = pt.y * h;
+          if (idx === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        if (draftPoints.length >= 3) {
+          ctx.closePath();
+          ctx.fillStyle = `${draftColor}33`;
+          ctx.fill();
+        }
+        ctx.strokeStyle = draftColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        draftPoints.forEach((pt, idx) => {
+          const px = pt.x * w;
+          const py = pt.y * h;
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = draftColor;
+          ctx.font = "bold 10px monospace";
+          ctx.fillText(`P${idx + 1}`, px + 6, py - 4);
+        });
+        ctx.restore();
+      }
+
+      // 3. DIBUJAR BOUNDING BOX DEL OBJETO Y PUNTO DE ANCLAJE INFERIOR (FRIGATE BOTTOM_CENTER)
+      const activeBoxColor = breachedZone ? "#f43f5e" : "#10b981";
+      ctx.strokeStyle = activeBoxColor;
+      ctx.lineWidth = 1.8;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+      // Punto de anclaje inferior (pies) que activa las zonas poligonales
+      ctx.fillStyle = "#fde047";
+      ctx.beginPath();
+      ctx.arc(footNormX * w, footNormY * h, isExpanded ? 4 : 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = activeBoxColor;
+      ctx.font = isExpanded ? "bold 11px monospace" : "9px monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(
+        breachedZone ? "INTRUSIÓN EN ZONA [97%]" : "HUMANO [94%]",
+        boxX,
+        boxY - 6
+      );
+
+      // OSD
       ctx.fillStyle = "#ffffff";
       ctx.font = "10px monospace";
       ctx.textAlign = "left";
       ctx.fillText(`CAM: ${camera.name}`, 15, h - 25);
       ctx.fillText(`IP: ${camera.ip}`, 15, h - 12);
 
-      // Current Time OSD
       const dateStr = new Date().toLocaleDateString("es-CL");
       const timeStr = new Date().toLocaleTimeString("es-CL");
       ctx.textAlign = "right";
       ctx.fillText(`${dateStr} ${timeStr}`, w - 15, h - 12);
 
-      // AI Indicator top corner
+      // Top Left Badge
       ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
-      ctx.fillRect(12, 12, 115, 20);
+      ctx.fillRect(12, 12, 145, 20);
       ctx.strokeStyle = "rgba(16, 185, 129, 0.4)";
-      ctx.strokeRect(12, 12, 115, 20);
+      ctx.strokeRect(12, 12, 145, 20);
 
       ctx.fillStyle = "#10b981";
       ctx.font = "bold 8px monospace";
       ctx.textAlign = "left";
-      ctx.fillText("● ORBI VISION IA", 20, 25);
+      ctx.fillText("● ORBI FRIGATE IA", 20, 25);
 
       animationId = requestAnimationFrame(render);
     };
@@ -970,7 +1332,7 @@ function CameraStreamCanvas({ camera, isExpanded, refreshTrigger }: CameraStream
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [camera, refreshTrigger]);
+  }, [camera, refreshTrigger, zones, draftPoints, draftColor, isExpanded]);
 
   return (
     <canvas

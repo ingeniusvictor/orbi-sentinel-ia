@@ -1,0 +1,13 @@
+﻿{
+  "version": "0.17.0-autonomous-frigate-lpr",
+  "lprRegistry": [
+    { "plate": "GKJW-82", "owner": "Camioneta O&M ORBI Solar", "role": "Autorizado", "parkId": "dahua-lab", "notes": "Flota interna ingeniería" },
+    { "plate": "PRD-942", "owner": "Contratista Mantención Inversores", "role": "Visita", "parkId": "parral", "notes": "Acceso diurno autorizado" },
+    { "plate": "XXXX-99", "owner": "Vehículo Reportado Sospechoso", "role": "Lista Negra", "parkId": "all", "notes": "Disparar alerta crítica inmediata a Lumia" }
+  ],
+  "faceRegistry": [
+    { "id": "face-01", "name": "Víctor León", "role": "Director Ingeniería / Admin", "clearance": "Total", "TriggerGreeting": true },
+    { "id": "face-02", "name": "Patricio Solar", "role": "Técnico O&M Terreno", "clearance": "Planta Solar", "TriggerGreeting": false },
+    { "id": "face-03", "name": "Sofía Martínez", "role": "Administración Central", "clearance": "Comunidad", "TriggerGreeting": false }
+  ]
+}
