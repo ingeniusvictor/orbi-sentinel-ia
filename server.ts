@@ -2581,13 +2581,24 @@ async function start() {
   // Zero-Latency Video Stream Bridge (Real RTSP to WebSocket)
   // Utiliza un WebSocketServer en el puerto 24678 para emitir frames MJPEG base64 (FFmpeg en CPU)
   const wssPort = 24678;
-  const wss = new WebSocketServer({ port: wssPort, path: "/api/ws/stream" });
-  console.log(`[Zero-Latency Bridge] WebSocket server running on ws://localhost:${wssPort}/api/ws/stream`);
-
+  let wss = (global as any).__wss;
   let ffmpegProc: import("child_process").ChildProcess | null = null;
   let clientCount = 0;
 
-  wss.on("connection", (ws) => {
+  if (!wss) {
+    wss = new WebSocketServer({ port: wssPort, path: "/api/ws/stream" });
+    (global as any).__wss = wss;
+
+    wss.on("error", (err: any) => {
+      if (err.code === "EADDRINUSE") {
+        console.log(`[Zero-Latency Bridge] WebSocket server already running on port ${wssPort} (EADDRINUSE ignored).`);
+      } else {
+        console.error(`[Zero-Latency Bridge] WebSocket server error:`, err);
+      }
+    });
+    console.log(`[Zero-Latency Bridge] WebSocket server running on ws://localhost:${wssPort}/api/ws/stream`);
+
+    wss.on("connection", (ws) => {
     clientCount++;
     console.log(`[Zero-Latency Bridge] New WebSocket connection established for RTSP stream. Clients: ${clientCount}`);
 
@@ -2675,6 +2686,9 @@ async function start() {
       }
     });
   });
+} else {
+  console.log(`[Zero-Latency Bridge] WebSocket server already running. Reusing singleton instance.`);
+}
 }
 
 start().catch((err) => {
