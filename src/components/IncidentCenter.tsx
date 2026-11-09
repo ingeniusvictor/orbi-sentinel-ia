@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Camera, Park, Incident, IncidentType, IncidentStatus } from "../types";
-import { AlertTriangle, Clock, MapPin, Eye, FileText, Clipboard, Check, Plus, Filter, Trash, EyeOff } from "lucide-react";
+import { AlertTriangle, Clock, MapPin, Eye, FileText, Clipboard, Check, Plus, Filter, Trash, EyeOff, Mic, Search, Loader2 } from "lucide-react";
 
 interface IncidentCenterProps {
   parks: Park[];
@@ -28,6 +28,9 @@ export default function IncidentCenter({
   const [observations, setObservations] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [copySuccessId, setCopySuccessId] = useState<string | null>(null);
+  const [semanticQuery, setSemanticQuery] = useState("");
+  const [isProcessingLumia, setIsProcessingLumia] = useState(false);
+  const [lumiaResults, setLumiaResults] = useState<Incident[] | null>(null);
 
   // Filter parks and cameras based on line
   const filteredParks = parks.filter(p => {
@@ -88,7 +91,38 @@ Sentinel IA Foundation Base: Reporte de Evidencia Operacional`;
     setTimeout(() => setCopySuccessId(null), 2000);
   };
 
-  const filteredIncidents = incidents.filter(inc => {
+  const handleLumiaSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!semanticQuery.trim()) {
+      setLumiaResults(null);
+      return;
+    }
+
+    setIsProcessingLumia(true);
+
+    try {
+      const res = await fetch("/api/lumia/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: semanticQuery })
+      });
+      const data = await res.json();
+      if (data.success && data.results) {
+        // Add a slight delay to simulate "processing" effect
+        setTimeout(() => {
+          setLumiaResults(data.results);
+          setIsProcessingLumia(false);
+        }, 1500);
+      } else {
+        setIsProcessingLumia(false);
+      }
+    } catch (error) {
+      console.error(error);
+      setIsProcessingLumia(false);
+    }
+  };
+
+  const filteredIncidents = lumiaResults || incidents.filter(inc => {
     if (filterStatus === "todos") return true;
     return inc.status === filterStatus;
   });
@@ -102,6 +136,43 @@ Sentinel IA Foundation Base: Reporte de Evidencia Operacional`;
           Registra y audita incidentes de seguridad y técnicos reportados por el personal de vigilancia o detectados automáticamente por el motor de visión contextual de <strong>ORBI Sentinel IA</strong>.
         </p>
       </div>
+
+      {/* Lumia Semantic Search Bar */}
+      <form onSubmit={handleLumiaSearch} className="bg-slate-900 border border-emerald-500/50 rounded-xl p-2 flex items-center gap-3 relative overflow-hidden">
+        <div className="flex-1 flex items-center gap-3 px-2 z-10">
+          <Search className="w-5 h-5 text-emerald-500" />
+          <input
+            type="text"
+            placeholder='Ej: "camioneta roja en el portón" o "persona cerca de los inversores"'
+            value={semanticQuery}
+            onChange={(e) => setSemanticQuery(e.target.value)}
+            className="w-full bg-transparent border-none text-emerald-300 font-mono text-sm focus:outline-none placeholder:text-emerald-900/50"
+          />
+          <Mic className="w-5 h-5 text-emerald-500 cursor-pointer hover:text-emerald-400 transition-colors" title="Búsqueda por voz (Lumia Voice)" />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isProcessingLumia}
+          className="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 px-4 py-2 rounded-lg font-mono text-xs font-bold transition-all z-10 whitespace-nowrap flex items-center gap-2"
+        >
+          {isProcessingLumia ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Procesando...
+            </>
+          ) : (
+            "Buscar (Lumia)"
+          )}
+        </button>
+
+        {/* Visual Scanning Effect */}
+        {isProcessingLumia && (
+          <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
+            <div className="w-full h-full bg-gradient-to-r from-transparent via-emerald-500 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
+          </div>
+        )}
+      </form>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Register Form */}
@@ -236,7 +307,17 @@ Sentinel IA Foundation Base: Reporte de Evidencia Operacional`;
               </div>
             </div>
 
-            {filteredIncidents.length > 0 ? (
+            {isProcessingLumia ? (
+              <div className="flex flex-col items-center justify-center text-center py-20 text-emerald-500 space-y-4">
+                <Loader2 className="w-10 h-10 animate-spin" />
+                <div>
+                  <p className="text-sm font-mono font-bold">Lumia procesando consulta semántica...</p>
+                  <p className="text-[11px] text-emerald-600/70 max-w-xs mx-auto mt-1 font-mono">
+                    Traduciendo lenguaje natural a filtros vectoriales en orbi-sentinel-db.json
+                  </p>
+                </div>
+              </div>
+            ) : filteredIncidents.length > 0 ? (
               <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1 select-text">
                 {filteredIncidents.map((inc) => (
                   <div
