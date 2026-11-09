@@ -3,7 +3,7 @@ import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
-import { execSync, exec } from "child_process";
+import { execSync, exec, spawn } from "child_process";
 import fs from "fs";
 import crypto from "crypto";
 import net from "net";
@@ -2578,26 +2578,101 @@ async function start() {
   console.log(`[GPU Manager] Reserving ${GpuReservationConfig.targetGpu} strictly for ${GpuReservationConfig.model} inference.`);
   console.log(`[GPU Manager] Video streams will be handled via ${GpuReservationConfig.videoHandling} to maintain Zero-Latency.`);
 
-  // Zero-Latency Video Stream Bridge (Simulated RTSP to WebRTC/WebSocket)
-  const wss = new WebSocketServer({ server, path: "/api/ws/stream" });
-  wss.on("connection", (ws) => {
-    console.log("[Zero-Latency Bridge] New WebSocket connection established for RTSP stream.");
+  // Zero-Latency Video Stream Bridge (Real RTSP to WebSocket)
+  // Utiliza un WebSocketServer en el puerto 24678 para emitir frames MJPEG base64 (FFmpeg en CPU)
+  const wssPort = 24678;
+  const wss = new WebSocketServer({ port: wssPort, path: "/api/ws/stream" });
+  console.log(`[Zero-Latency Bridge] WebSocket server running on ws://localhost:${wssPort}/api/ws/stream`);
 
-    // Simulate low-latency heartbeat/video frames
-    const interval = setInterval(() => {
-      if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({
-          type: "frame",
-          timestamp: Date.now(),
-          status: "active",
-          latency: "1ms"
-        }));
+  let ffmpegProc: import("child_process").ChildProcess | null = null;
+  let clientCount = 0;
+
+  wss.on("connection", (ws) => {
+    clientCount++;
+    console.log(`[Zero-Latency Bridge] New WebSocket connection established for RTSP stream. Clients: ${clientCount}`);
+
+    // If this is the first client, start FFmpeg
+    if (clientCount === 1 && !ffmpegProc) {
+      console.log("[Zero-Latency Bridge] Starting FFmpeg process for RTSP stream...");
+
+      const db = loadSentinelDatabase();
+      const labCam = db.cameras?.find((c: any) => c.id === "lab-cam-01");
+
+      const rtspUser = process.env.ORBI_SENTINEL_LAB_RTSP_USER || "admin";
+      const rtspPass = process.env.ORBI_SENTINEL_LAB_RTSP_PASS || "Admin123";
+
+      let rtspUrl = labCam?.rtspUrl || "rtsp://{user}:{pass}@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1";
+      rtspUrl = rtspUrl.replace("{user}", rtspUser).replace("{pass}", rtspPass).replace("admin:clave", `${rtspUser}:${rtspPass}`);
+
+      const ffmpegArgs = [
+        "-rtsp_transport", "tcp",
+        "-i", rtspUrl,
+        "-f", "image2pipe",
+        "-vcodec", "mjpeg",
+        "-r", "15",
+        "-q:v", "5",
+        "-"
+      ];
+
+      try {
+        ffmpegProc = spawn("ffmpeg", ffmpegArgs);
+
+        if (ffmpegProc && ffmpegProc.stdout) {
+          let chunks: Buffer[] = [];
+
+          ffmpegProc.stdout.on("data", (data: Buffer) => {
+            chunks.push(data);
+            let buffer = Buffer.concat(chunks);
+
+            // Check for JPEG SOI (0xFF 0xD8) and EOI (0xFF 0xD9) markers
+            let start = buffer.indexOf(Buffer.from([0xFF, 0xD8]));
+            let end = buffer.indexOf(Buffer.from([0xFF, 0xD9]), start + 2);
+
+            while (start !== -1 && end !== -1) {
+              const frame = buffer.subarray(start, end + 2);
+              const base64Data = frame.toString("base64");
+              const payload = JSON.stringify({
+                type: "frame_data",
+                timestamp: Date.now(),
+                data: `data:image/jpeg;base64,${base64Data}`
+              });
+
+              wss.clients.forEach((client) => {
+                if (client.readyState === 1) { // OPEN
+                  client.send(payload);
+                }
+              });
+
+              // Update buffer to remaining data
+              buffer = buffer.subarray(end + 2);
+              chunks = [buffer];
+
+              start = buffer.indexOf(Buffer.from([0xFF, 0xD8]));
+              end = buffer.indexOf(Buffer.from([0xFF, 0xD9]), start + 2);
+            }
+          });
+        }
+
+        if (ffmpegProc && ffmpegProc.stderr) {
+          ffmpegProc.stderr.on("data", (data: Buffer) => {
+             // console.log(`[FFmpeg Log] ${data.toString()}`); // Can be too noisy
+          });
+        }
+      } catch (e: any) {
+        console.error("[Zero-Latency Bridge] Failed to start FFmpeg:", e.message);
       }
-    }, 1000 / 30); // 30 FPS simulation
+    }
 
     ws.on("close", () => {
-      clearInterval(interval);
-      console.log("[Zero-Latency Bridge] WebSocket connection closed.");
+      clientCount--;
+      console.log(`[Zero-Latency Bridge] WebSocket connection closed. Clients: ${clientCount}`);
+
+      // Stop FFmpeg if no clients
+      if (clientCount === 0 && ffmpegProc) {
+        console.log("[Zero-Latency Bridge] Stopping FFmpeg process...");
+        ffmpegProc.kill("SIGKILL");
+        ffmpegProc = null;
+      }
     });
   });
 }
